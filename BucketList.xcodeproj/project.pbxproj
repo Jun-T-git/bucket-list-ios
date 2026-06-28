@@ -43,6 +43,8 @@
 		B0F40012000000000000A004 /* ItemForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0F40010000000000000A004 /* ItemForm.swift */; };
 		B0010010000000000000A001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B0020010000000000000A001 /* PrivacyInfo.xcprivacy */; };
 		B0E10006000000000000A002 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B0E20007000000000000A002 /* PrivacyInfo.xcprivacy */; };
+		B0010011000000000000A001 /* ProStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0020011000000000000A001 /* ProStore.swift */; };
+		B0010012000000000000A001 /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0020012000000000000A001 /* PaywallView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -77,6 +79,8 @@
 		B0F40010000000000000A004 /* ItemForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemForm.swift; sourceTree = "<group>"; };
 		B0020010000000000000A001 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		B0E20007000000000000A002 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		B0020011000000000000A001 /* ProStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProStore.swift; sourceTree = "<group>"; };
+		B0020012000000000000A001 /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -138,6 +142,8 @@
 				B002000F000000000000A001 /* SplashView.swift */,
 				B0F40001000000000000A004 /* SelectAllTextField.swift */,
 				B0F40010000000000000A004 /* ItemForm.swift */,
+				B0020011000000000000A001 /* ProStore.swift */,
+				B0020012000000000000A001 /* PaywallView.swift */,
 				B0E20006000000000000A002 /* BucketList.entitlements */,
 				B0020010000000000000A001 /* PrivacyInfo.xcprivacy */,
 				B0F50001000000000000A003 /* Capture */,
@@ -319,6 +325,8 @@
 				B0F10005000000000000A003 /* RuleBasedCandidate.swift in Sources */,
 				B0F40002000000000000A004 /* SelectAllTextField.swift in Sources */,
 				B0F40011000000000000A004 /* ItemForm.swift in Sources */,
+				B0010011000000000000A001 /* ProStore.swift in Sources */,
+				B0010012000000000000A001 /* PaywallView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -508,7 +516,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = "1";
 			};
 			name = Debug;
 		};
@@ -540,7 +548,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = "1";
 			};
 			name = Release;
 		};
@@ -565,7 +573,7 @@
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = "1";
 			};
 			name = Debug;
 		};
@@ -590,7 +598,7 @@
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = "1";
 			};
 			name = Release;
 		};

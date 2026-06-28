@@ -3,13 +3,18 @@ import SwiftUI
 @main
 struct BucketListApp: App {
     @StateObject private var store = AppStore()
+    @StateObject private var pro = ProStore()
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(store)
+                .environmentObject(pro)
                 .onAppear {
+                    // Begin observing StoreKit transactions and resolve the Pro
+                    // entitlement (mirrored into the App Group for the extension).
+                    pro.start()
                     // Keep scheduled nudges in step with settings — and refresh
                     // the item each nudge names. No permission prompt here; that
                     // only happens when the user flips a toggle in 設定.

@@ -2,6 +2,8 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject var store: AppStore
+    @EnvironmentObject var pro: ProStore
+    @State private var showPaywall = false
 
     // Marketing version (CFBundleShortVersionString) plus build number,
     // read from the bundle so the displayed value never drifts from the
@@ -78,6 +80,39 @@ struct SettingsView: View {
                     TagManagerRow()
                 }
 
+                SettingsGroup(title: "Pro") {
+                    if pro.isPro {
+                        SettingsRow(label: "バケットリスト Pro",
+                                    sub: "URL取り込みが無制限でご利用いただけます") {
+                            AnyView(Text("解放済み")
+                                .font(Theme.Font.sans(13, weight: .bold))
+                                .foregroundColor(Theme.Color.green700))
+                        }
+                    } else {
+                        Button {
+                            Haptics.tap()
+                            showPaywall = true
+                        } label: {
+                            SettingsRow(label: "Pro にアップグレード",
+                                        sub: "URLから自動でリストに追加（無制限）") {
+                                AnyView(disclosureChevron)
+                            }
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            Haptics.tap()
+                            Task { await pro.restore() }
+                        } label: {
+                            SettingsRow(label: "購入を復元",
+                                        sub: "以前に購入された方はこちら") {
+                                AnyView(disclosureChevron)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
                 SettingsGroup(title: "アプリについて") {
                     Button {
                         Haptics.tap()
@@ -138,6 +173,11 @@ struct SettingsView: View {
         .onChange(of: store.tweaks.seasonNudge) { _, _ in syncNotifications() }
         .onChange(of: store.tweaks.weekendNudge) { _, _ in syncNotifications() }
         .onChange(of: store.tweaks.monthEndNudge) { _, _ in syncNotifications() }
+        .sheet(isPresented: $showPaywall) {
+            PaywallView()
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
     }
 
     // Toggling a nudge re-syncs scheduled notifications; the permission

@@ -1238,6 +1238,47 @@ enum Storage {
         }
         defaults.set(true, forKey: kMigrated)
     }
+
+    // MARK: - Pro entitlement & free auto-capture quota
+    // The Pro unlock is a one-time, non-consumable purchase. StoreKit itself
+    // lives only in the host app (see ProStore); the Share Extension can't run
+    // StoreKit, so the host mirrors the resolved entitlement into this shared
+    // App Group suite. Both targets then read `proEntitled` / the quota from the
+    // same place — no StoreKit needed in the extension.
+    private static let kProEntitled = "bucket-list-v2.proEntitled"
+    private static let kFreeCaptures = "bucket-list-v2.freeCapturesUsed"
+
+    // Free automatic URL imports allowed before Pro is required. A modest taste
+    // of the URL→list "magic" so the value is felt before the wall. Lifetime
+    // count (not monthly): simplest to reason about and clearest to the user.
+    // Tune freely.
+    static let freeCaptureLimit = 10
+
+    // Mirror of the StoreKit entitlement. Written by the host app whenever the
+    // entitlement changes; read everywhere (including the Share Extension).
+    static var proEntitled: Bool {
+        get { defaults.bool(forKey: kProEntitled) }
+        set { defaults.set(newValue, forKey: kProEntitled) }
+    }
+
+    // How many free auto-imports have been consumed so far.
+    static var freeCapturesUsed: Int {
+        get { defaults.integer(forKey: kFreeCaptures) }
+        set { defaults.set(newValue, forKey: kFreeCaptures) }
+    }
+
+    // True when an automatic URL reading may run: Pro unlocks it outright,
+    // otherwise the free allowance must not be exhausted yet.
+    static var canAutoCapture: Bool {
+        proEntitled || freeCapturesUsed < freeCaptureLimit
+    }
+
+    // Count one consumed free auto-import. No-op once Pro (Pro is unlimited),
+    // so an accidental call after purchase can't waste anything.
+    static func consumeFreeCapture() {
+        guard !proEntitled else { return }
+        freeCapturesUsed += 1
+    }
 }
 
 // MARK: - Filtering & sorting

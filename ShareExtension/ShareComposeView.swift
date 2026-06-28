@@ -42,7 +42,7 @@ struct ShareComposeView: View {
     @State private var saveError = false
 
     enum TouchedField: Hashable { case title, priority, seasons, tags }
-    enum URLState { case idle, invalidFormat, generating, ok, failed }
+    enum URLState { case idle, invalidFormat, generating, ok, failed, blockedFree }
 
     private var canSave: Bool { !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
@@ -55,6 +55,7 @@ struct ShareComposeView: View {
         case .invalidFormat: return "URLの形式で入力してください"
         case .failed:        return "このリンクを読み取れませんでした。内容を手入力してください。"
         case .ok:            return (candidate?.shouldConfirm == true) ? "情報が少なめです。内容をご確認ください。" : nil
+        case .blockedFree:   return "無料の自動取り込みは上限に達しました。アプリで Pro にすると無制限になります。内容は手入力でそのまま保存できます。"
         default:             return nil
         }
     }
@@ -152,6 +153,17 @@ struct ShareComposeView: View {
             return
         }
         guard raw != lastQueriedURL else { return }
+        // Pro soft-gate: the extension can't run StoreKit, so it reads the
+        // entitlement + free allowance mirrored into the shared App Group. Out
+        // of free reads (and not Pro) → skip the automatic reading and keep the
+        // hand-seeded draft saveable; nudge toward Pro in the app.
+        if !Storage.canAutoCapture {
+            genTask?.cancel()
+            isGenerating = false
+            urlState = .blockedFree
+            lastQueriedURL = raw
+            return
+        }
         lastQueriedURL = raw
         urlState = .generating
         withAnimation(.easeInOut(duration: 0.2)) { isGenerating = true }
@@ -165,6 +177,8 @@ struct ShareComposeView: View {
                     isGenerating = false
                     candidate = c
                     if c.readable {
+                        // A successful read consumes one free import (no-op for Pro).
+                        Storage.consumeFreeCapture()
                         applyAI(c)       // auto-adopt: fills only untouched fields
                         urlState = .ok
                     } else {

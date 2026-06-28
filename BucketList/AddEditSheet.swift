@@ -12,8 +12,13 @@ import SwiftUI
 
 struct AddEditSheet: View {
     @EnvironmentObject var store: AppStore
+    @EnvironmentObject var pro: ProStore
     let editingItem: BucketItem?
     let onClose: () -> Void
+
+    // Shown when the free auto-import allowance is spent and the user enters a
+    // URL. The link stays in the field — manual saving is never blocked.
+    @State private var showPaywall = false
 
     @State private var title = ""
     @State private var note = ""
@@ -172,6 +177,11 @@ struct AddEditSheet: View {
             Button("変更を破棄", role: .destructive) { onClose() }
             Button("編集を続ける", role: .cancel) {}
         }
+        .sheet(isPresented: $showPaywall) {
+            PaywallView()
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
     }
 
     // MARK: header
@@ -230,6 +240,17 @@ struct AddEditSheet: View {
             return
         }
         guard raw != lastQueriedURL else { return }   // already read this URL
+        // Pro gate: automatic reading is a Pro feature with a small free
+        // allowance. Out of free reads (and not Pro) → offer Pro instead of
+        // reading; the URL stays put so the user can still save by hand.
+        if !pro.isPro && !Storage.canAutoCapture {
+            genTask?.cancel()
+            isGenerating = false
+            pendingCandidate = nil
+            urlState = .idle
+            showPaywall = true
+            return
+        }
         lastQueriedURL = raw
         pendingCandidate = nil
         urlState = .generating
@@ -246,6 +267,8 @@ struct AddEditSheet: View {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     isGenerating = false
                     if c.readable {
+                        // A successful read consumes one free import (no-op for Pro).
+                        Storage.consumeFreeCapture()
                         pendingCandidate = c
                         urlState = .ok
                         Haptics.success()
