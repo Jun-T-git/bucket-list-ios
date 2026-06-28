@@ -3,6 +3,18 @@ import SwiftUI
 import Combine
 import UserNotifications
 
+// MARK: - Feature flags
+
+enum FeatureFlags {
+    // Pro / in-app purchase. Disabled for the initial free release (the Paid
+    // Apps agreement / IAP product aren't set up in App Store Connect yet).
+    // While false: no Paywall or purchase/restore UI is shown, StoreKit is never
+    // touched, and URL auto-import is UNLIMITED for everyone (no free-quota wall
+    // with no way past it). Flip to `true` once the IAP `teratech.BucketList.pro`
+    // and the Paid Apps agreement are live, and the paid gating returns as-is.
+    static let proEnabled = false
+}
+
 // MARK: - Priority
 // Three levels, weighted top → maybe → someday. Visualized as green depth.
 
@@ -1267,16 +1279,18 @@ enum Storage {
         set { defaults.set(newValue, forKey: kFreeCaptures) }
     }
 
-    // True when an automatic URL reading may run: Pro unlocks it outright,
-    // otherwise the free allowance must not be exhausted yet.
+    // True when an automatic URL reading may run. With Pro disabled it's always
+    // allowed (unlimited free release); otherwise Pro unlocks it outright, or the
+    // free allowance must not be exhausted yet.
     static var canAutoCapture: Bool {
-        proEntitled || freeCapturesUsed < freeCaptureLimit
+        guard FeatureFlags.proEnabled else { return true }
+        return proEntitled || freeCapturesUsed < freeCaptureLimit
     }
 
-    // Count one consumed free auto-import. No-op once Pro (Pro is unlimited),
-    // so an accidental call after purchase can't waste anything.
+    // Count one consumed free auto-import. No-op when Pro is disabled (unlimited)
+    // or once Pro is owned, so an accidental call can't waste anything.
     static func consumeFreeCapture() {
-        guard !proEntitled else { return }
+        guard FeatureFlags.proEnabled, !proEntitled else { return }
         freeCapturesUsed += 1
     }
 }

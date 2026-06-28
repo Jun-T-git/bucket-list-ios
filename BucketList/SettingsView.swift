@@ -80,6 +80,7 @@ struct SettingsView: View {
                     TagManagerRow()
                 }
 
+                if FeatureFlags.proEnabled {
                 SettingsGroup(title: "Pro") {
                     if pro.isPro {
                         SettingsRow(label: "バケットリスト Pro",
@@ -111,6 +112,7 @@ struct SettingsView: View {
                         }
                         .buttonStyle(.plain)
                     }
+                }
                 }
 
                 SettingsGroup(title: "アプリについて") {

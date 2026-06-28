@@ -35,6 +35,8 @@ final class ProStore: ObservableObject {
     /// Start observing transactions and resolve the current entitlement. Call
     /// once at app launch.
     func start() {
+        // Pro disabled (free release): never touch StoreKit.
+        guard FeatureFlags.proEnabled else { return }
         guard updatesTask == nil else { return }
         updatesTask = listenForTransactions()
         Task {
