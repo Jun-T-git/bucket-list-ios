@@ -12,6 +12,10 @@ struct ContentView: View {
     @State private var deleteConfirm = false
     // Splash is skipped in screenshot mode so captures aren't covered.
     @State private var showSplash = !Screenshots.isOn
+    #if DEBUG
+    // Screenshot-only: presents a filled Share-Extension / AI-capture form.
+    @State private var ssForm: ScreenshotFormMock.Kind? = nil
+    #endif
 
     private var showSelectionBar: Bool {
         store.selectedTab == .home && store.selectionMode
@@ -93,8 +97,12 @@ struct ContentView: View {
             }
         }
         .onAppear {
-            // Screenshot mode: open the add sheet when requested (SCREEN=add).
+            // Screenshot mode: open the requested capture screen.
             if Screenshots.screen == "add" { addOpen = true }
+            #if DEBUG
+            if Screenshots.screen == "share" { ssForm = .share }
+            if Screenshots.screen == "addai" { ssForm = .aicapture }
+            #endif
         }
         .sheet(isPresented: $addOpen) {
             AddEditSheet(editingItem: editingItem) {
@@ -162,6 +170,11 @@ struct ContentView: View {
         } message: {
             Text("保存されたリストを開けませんでした。データは消さずに保持しています。アプリを再起動しても表示されない場合は、お手数ですがお問い合わせください。")
         }
+        #if DEBUG
+        .fullScreenCover(item: $ssForm) { kind in
+            ScreenshotFormMock(kind: kind).environmentObject(store)
+        }
+        #endif
     }
 
     private var backgroundWash: some View {
@@ -470,3 +483,78 @@ struct FloatingAddButton: View {
         .accessibilityHint("新しいやりたいことを追加します")
     }
 }
+
+#if DEBUG
+// MARK: - Screenshot form mock (DEBUG only)
+// Presents the shared ItemForm pre-filled, styled as either the Share Extension
+// compose sheet (「Wishesに追加」) or the in-app add sheet mid-AI-capture, so App
+// Store marketing screenshots can show those flows. Never compiled into Release.
+struct ScreenshotFormMock: View {
+    enum Kind: String, Identifiable { case share, aicapture; var id: String { rawValue } }
+    let kind: Kind
+    @EnvironmentObject var store: AppStore
+
+    @State private var title: String
+    @State private var memo = ""
+    @State private var priority: Priority
+    @State private var seasons: [SeasonTag]
+    @State private var tags: [String]
+    @State private var urlText: String
+
+    init(kind: Kind) {
+        self.kind = kind
+        switch kind {
+        case .share:
+            _title    = State(initialValue: "ブルーボトルコーヒー 清澄白河")
+            _priority = State(initialValue: .maybe)
+            _seasons  = State(initialValue: [.any])
+            _tags     = State(initialValue: ["food", "c-relax"])
+            _urlText  = State(initialValue: "maps.apple.com/place/bluebottle")
+        case .aicapture:
+            _title    = State(initialValue: "")
+            _priority = State(initialValue: .maybe)
+            _seasons  = State(initialValue: [.any])
+            _tags     = State(initialValue: [])
+            _urlText  = State(initialValue: "https://youtu.be/kanazawa-trip")
+        }
+    }
+
+    private var preview: ItemForm.AIPreview? {
+        guard kind == .aicapture else { return nil }
+        return ItemForm.AIPreview(
+            title: "ひがし茶屋街を散歩する",
+            priority: .maybe,
+            seasons: [.season(.spring), .month(4)],
+            tags: ["travel", "leisure"],
+            lowConfidence: false)
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                ItemForm(
+                    title: $title, memo: $memo,
+                    priority: $priority, seasons: $seasons, tags: $tags,
+                    allTags: store.allTags,
+                    onAddCustomTag: { _ in nil },
+                    urlText: $urlText,
+                    isGenerating: false,
+                    preview: preview,
+                    autofocusTitle: false
+                )
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+            }
+            .background(Theme.Color.pageBackground)
+            .navigationTitle(kind == .share ? "Wishesに追加" : "新規追加")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("キャンセル") {} }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("保存") {}.fontWeight(.semibold)
+                }
+            }
+        }
+    }
+}
+#endif

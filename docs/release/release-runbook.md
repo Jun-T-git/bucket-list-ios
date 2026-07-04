@@ -42,10 +42,11 @@ App Store Connect → **マイApp** → **＋** → 新規App:
 - バージョン 1.0 の: プロモーションテキスト / 説明 / キーワード / スクリーンショット / 「このバージョンの新機能」を入力（`app-store-metadata.md`）。
 
 ## 5. スクリーンショット（iPhoneのみ・iPad不要）
-- **生成済み**: `screenshots/appstore-6.9inch/`（1320×2868px・4枚）。App Store Connect の
-  「iPhone 6.9インチディスプレイ」枠にそのままアップロード可。おすすめ順は 01→02→04→03。
-- 6.9型を登録すれば、より小さいサイズは Apple 側で自動縮小表示される（追加は任意）。
-- 差し替え・追加が必要なら `screenshots/README.md` の手順で再生成できる。
+- **提出用（完成版）**: `screenshots/appstore-marketing/`（1284×2778px・4枚）。
+  見出し＋端末フレーム＋背景を合成済み。**01→02→03→04 の順**でアップロード（iPhone 6.5/6.7インチ枠で受理）。
+- この1サイズで iPhone 全機種の表示に使われる（6.9型枠に出す場合は 1320×2868 が必要）。
+- 文言・レイアウトの調整や再生成は `screenshots/README.md` /
+  `screenshots/marketing/generate.py` を参照。
 
 ## 6. ビルドをアップロード
 1. Xcode 上部のデバイス選択を **Any iOS Device (arm64)** に。

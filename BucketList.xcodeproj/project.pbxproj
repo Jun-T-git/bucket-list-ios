@@ -90,7 +90,7 @@
 		B0020010000000000000A001 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		B0020011000000000000A001 /* ProStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProStore.swift; sourceTree = "<group>"; };
 		B0020012000000000000A001 /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
-		B0030001000000000000A001 /* バケットリスト.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "バケットリスト.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		B0030001000000000000A001 /* Wishes.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Wishes.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B0E20001000000000000A002 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		B0E20002000000000000A002 /* ShareComposeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareComposeView.swift; sourceTree = "<group>"; };
 		B0E20003000000000000A002 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -165,7 +165,7 @@
 		B0050003000000000000A001 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				B0030001000000000000A001 /* バケットリスト.app */,
+				B0030001000000000000A001 /* Wishes.app */,
 				B0E20005000000000000A002 /* ShareExtension.appex */,
 			);
 			name = Products;
@@ -231,7 +231,7 @@
 			);
 			name = BucketList;
 			productName = BucketList;
-			productReference = B0030001000000000000A001 /* バケットリスト.app */;
+			productReference = B0030001000000000000A001 /* Wishes.app */;
 			productType = "com.apple.product-type.application";
 		};
 		B0E60001000000000000A002 /* ShareExtension */ = {
@@ -500,8 +500,9 @@
 				DEVELOPMENT_TEAM = JD7L34U2WS;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Wishes";
+				INFOPLIST_KEY_CFBundleDisplayName = Wishes;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -517,7 +518,7 @@
 					FoundationModels,
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = teratech.BucketList;
-				PRODUCT_NAME = "Wishes";
+				PRODUCT_NAME = Wishes;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -536,8 +537,9 @@
 				DEVELOPMENT_TEAM = JD7L34U2WS;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Wishes";
+				INFOPLIST_KEY_CFBundleDisplayName = Wishes;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -553,7 +555,7 @@
 					FoundationModels,
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = teratech.BucketList;
-				PRODUCT_NAME = "Wishes";
+				PRODUCT_NAME = Wishes;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
