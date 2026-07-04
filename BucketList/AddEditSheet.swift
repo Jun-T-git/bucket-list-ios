@@ -144,7 +144,7 @@ struct AddEditSheet: View {
                     onApplyPreview: applyPreview,
                     onDismissPreview: { pendingCandidate = nil },
                     urlNotice: urlNotice,
-                    autofocusTitle: !isEditing
+                    autofocusTitle: !isEditing && !Screenshots.isOn
                 )
                 .padding(.horizontal, 24)
                 .padding(.top, 14)

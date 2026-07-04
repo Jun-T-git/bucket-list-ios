@@ -15,6 +15,28 @@ enum FeatureFlags {
     static let proEnabled = false
 }
 
+// MARK: - Screenshot mode (DEBUG only)
+// Drives App Store screenshot capture: launched with SCREENSHOTS=1 the app skips
+// the splash/onboarding, loads a curated demo dataset with a pinned date, and
+// opens the tab named by SCREEN (home/records/settings/add). Compiled out of
+// Release entirely, so it can never affect the shipped app.
+enum Screenshots {
+    static var isOn: Bool {
+        #if DEBUG
+        return ProcessInfo.processInfo.environment["SCREENSHOTS"] == "1"
+        #else
+        return false
+        #endif
+    }
+    static var screen: String? {
+        #if DEBUG
+        return ProcessInfo.processInfo.environment["SCREEN"]
+        #else
+        return nil
+        #endif
+    }
+}
+
 // MARK: - Priority
 // Three levels, weighted top → maybe → someday. Visualized as green depth.
 
@@ -330,6 +352,81 @@ enum Seed {
         TagDef(key: "c-learn", ja: "学び", builtin: false),
         TagDef(key: "c-relax", ja: "のんびり", builtin: false),
     ]
+
+    // Pinned "today" for screenshots: a summer Friday so the home hero shows a
+    // 今週末 frame and the report's 今年 = 2026 has a full history.
+    static let screenshotDate: Date =
+        BucketItem.parseSavedAt("2026·07·17") ?? Date()
+
+    // Curated demo data for App Store screenshots (DEBUG screenshot mode only).
+    // A lively open list plus a spread of 2026 achievements so the レポート chart
+    // and pace card look real.
+    static let screenshotItems: [BucketItem] = [
+        // open — summer-forward for a July capture
+        .init(id: 1, title: "代々木公園のあの蕎麦屋に行く", priority: .top, seasons: [.any],
+              tags: ["food"], meta: "東京・渋谷", done: false,
+              via: "X", url: "x.com/foodie_tk/…", savedAt: "2026·07·02"),
+        .init(id: 2, title: "海でBBQ", priority: .top,
+              seasons: [.season(.summer), .month(7), .month(8)],
+              tags: ["food", "leisure"], meta: "夏のうちに", done: false,
+              via: nil, url: nil, savedAt: "2026·06·30"),
+        .init(id: 3, title: "富士山を見にドライブ", priority: .maybe, seasons: [.season(.summer)],
+              tags: ["travel", "leisure"], meta: "晴れた日に", done: false,
+              via: "YouTube", url: "youtu.be/fuji-drive", savedAt: "2026·06·18"),
+        .init(id: 4, title: "一人で映画館", priority: .top, seasons: [.any],
+              tags: ["leisure", "c-relax"], meta: "名画座", done: false,
+              via: nil, url: nil, savedAt: "2026·06·10"),
+        .init(id: 5, title: "京都の紅葉", priority: .maybe, seasons: [.season(.fall), .month(11)],
+              tags: ["travel", "leisure"], meta: "11月中旬", done: false,
+              via: "YouTube", url: "youtu.be/kyoto-momiji", savedAt: "2026·05·28"),
+        .init(id: 6, title: "カニを食べる", priority: .maybe,
+              seasons: [.season(.winter), .month(11), .month(12)],
+              tags: ["food", "travel"], meta: "北陸", done: false,
+              via: nil, url: nil, savedAt: "2026·05·14"),
+        .init(id: 7, title: "友達と銭湯", priority: .top,
+              seasons: [.season(.winter), .season(.fall)],
+              tags: ["leisure", "c-relax"], meta: "寒くなったら", done: false,
+              via: nil, url: nil, savedAt: "2026·05·09"),
+        .init(id: 8, title: "オーロラを見に行く", priority: .someday,
+              seasons: [.season(.winter), .month(11), .month(12), .month(1), .month(2)],
+              tags: ["travel"], meta: "アイスランド", done: false,
+              via: "Safari", url: "iceland-aurora.example.com/tours", savedAt: "2026·04·22"),
+        .init(id: 9, title: "アメリカ西海岸を旅する", priority: .someday, seasons: [.season(.summer)],
+              tags: ["travel"], meta: "長期休暇", done: false,
+              via: nil, url: nil, savedAt: "2026·03·30"),
+        .init(id: 10, title: "小説を一冊書く", priority: .someday, seasons: [.any],
+              tags: ["c-learn"], meta: "締切なし", done: false,
+              via: nil, url: nil, savedAt: "2026·02·08"),
+        // done — a 2026 achievement trail for the report
+        .init(id: 11, title: "江ノ島で夕日を見る", priority: .maybe,
+              seasons: [.season(.summer)], tags: ["leisure", "travel"], meta: "",
+              done: true, doneAt: BucketItem.parseSavedAt("2026·06·28"),
+              via: nil, url: nil, savedAt: "2026·06·01"),
+        .init(id: 12, title: "友達と海鮮丼", priority: .top, seasons: [.any],
+              tags: ["food"], meta: "", done: true,
+              doneAt: BucketItem.parseSavedAt("2026·05·10"),
+              via: nil, url: nil, savedAt: "2026·04·20"),
+        .init(id: 13, title: "春のうちに花見", priority: .top,
+              seasons: [.season(.spring), .month(4)], tags: ["leisure"], meta: "",
+              done: true, doneAt: BucketItem.parseSavedAt("2026·04·05"),
+              via: nil, url: nil, savedAt: "2026·03·12"),
+        .init(id: 14, title: "新しいカメラを買う", priority: .maybe, seasons: [.any],
+              tags: ["shopping"], meta: "", done: true,
+              doneAt: BucketItem.parseSavedAt("2026·03·22"),
+              via: nil, url: nil, savedAt: "2026·02·28"),
+        .init(id: 15, title: "河津桜を見にいく", priority: .maybe,
+              seasons: [.season(.spring), .month(3)], tags: ["travel", "leisure"], meta: "",
+              done: true, doneAt: BucketItem.parseSavedAt("2026·03·01"),
+              via: nil, url: nil, savedAt: "2026·02·10"),
+        .init(id: 16, title: "苺狩り", priority: .maybe, seasons: [.month(2)],
+              tags: ["food", "leisure"], meta: "", done: true,
+              doneAt: BucketItem.parseSavedAt("2026·02·15"),
+              via: nil, url: nil, savedAt: "2026·01·25"),
+        .init(id: 17, title: "初詣に行く", priority: .top, seasons: [.month(1)],
+              tags: ["leisure"], meta: "", done: true,
+              doneAt: BucketItem.parseSavedAt("2026·01·03"),
+              via: nil, url: nil, savedAt: "2025·12·20"),
+    ]
 }
 
 // MARK: - Tweaks
@@ -501,8 +598,8 @@ final class AppStore: ObservableObject {
         // keep their list across both migrations.
         Storage.migrateFromStandardIfNeeded()
         SharedStore.migrateLegacyIfNeeded()
-        let loadedItems: [BucketItem]
-        let loadedTags: [TagDef]
+        var loadedItems: [BucketItem]
+        var loadedTags: [TagDef]
         switch SharedStore.load() {
         case .loaded(let doc):
             loadedItems = doc.items
@@ -521,6 +618,13 @@ final class AppStore: ObservableObject {
             loadedTags = Seed.customTags
             self.storageUnreadable = true
         }
+        // Screenshot mode (DEBUG): override with curated demo data + a pinned
+        // date so App Store captures are consistent. No effect in Release.
+        if Screenshots.isOn {
+            Clock.override = Seed.screenshotDate
+            loadedItems = Seed.screenshotItems
+            loadedTags = Seed.customTags
+        }
         self.items = loadedItems
         self.customTags = loadedTags
         self.tweaks = Storage.loadTweaks() ?? Tweaks()
@@ -534,6 +638,17 @@ final class AppStore: ObservableObject {
         // Show the walkthrough on the very first launch (and any explicit replay
         // from 設定). Assigning here doesn't fire the didSet, which is fine.
         self.showOnboarding = !Storage.onboardingDone
+        // Screenshot mode: skip onboarding and open the requested tab.
+        if Screenshots.isOn {
+            self.showOnboarding = false
+            self.tweaks.yearGoal = 12   // a friendly, on-pace goal for the report
+
+            switch Screenshots.screen {
+            case "records":  self.selectedTab = .records
+            case "settings": self.selectedTab = .settings
+            default:         self.selectedTab = .home
+            }
+        }
     }
 
     // MARK: onboarding

@@ -10,7 +10,8 @@ struct ContentView: View {
     @State private var doneSheetOpen = false
     @State private var attrSheetOpen = false
     @State private var deleteConfirm = false
-    @State private var showSplash = true
+    // Splash is skipped in screenshot mode so captures aren't covered.
+    @State private var showSplash = !Screenshots.isOn
 
     private var showSelectionBar: Bool {
         store.selectedTab == .home && store.selectionMode
@@ -90,6 +91,10 @@ struct ContentView: View {
                 .transition(.opacity)
                 .zIndex(100)
             }
+        }
+        .onAppear {
+            // Screenshot mode: open the add sheet when requested (SCREEN=add).
+            if Screenshots.screen == "add" { addOpen = true }
         }
         .sheet(isPresented: $addOpen) {
             AddEditSheet(editingItem: editingItem) {
