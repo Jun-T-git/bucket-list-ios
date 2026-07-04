@@ -229,7 +229,7 @@ private struct VisionPage: View {
             illustration
                 .frame(maxHeight: 280)
             Spacer(minLength: 24)
-            PageCopy(title: "「いつか」を\nちゃんと叶えよう。",
+            PageCopy(title: "いつかやりたいを、\nすぐ保存。",
                      message: "「いつかやりたい」を、未来の自分のために保存。少しずつ叶えて、人生をちょっとよくしませんか？")
             Spacer(minLength: 20)
         }

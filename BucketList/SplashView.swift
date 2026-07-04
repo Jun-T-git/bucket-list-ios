@@ -37,7 +37,7 @@ struct SplashView: View {
                     Text("Wishes")
                         .font(Theme.Font.display(26, weight: .bold))
                         .foregroundColor(Theme.Color.ink0)
-                    Text("いつかやりたいをすぐ保存")
+                    Text("「いつか」をちゃんと叶えよう。")
                         .font(Theme.Font.sans(14, weight: .medium))
                         .foregroundColor(Theme.Color.ink2)
                 }
