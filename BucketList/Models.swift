@@ -605,11 +605,14 @@ final class AppStore: ObservableObject {
             loadedItems = doc.items
             loadedTags = doc.customTags
         case .absent:
-            // Fresh install (or an emptied store that was never persisted):
-            // seed the starter list. Assigning here doesn't fire didSet, so the
-            // seed isn't written until the user actually changes something.
-            loadedItems = Seed.items
-            loadedTags = Seed.customTags
+            // Fresh install (or an emptied store that was never persisted): start
+            // with a genuinely empty list. Seed.items is prototype/demo content and
+            // must never ship to real users — a new user sees the empty state
+            // ("＋ ボタンから追加できます") and the onboarding walkthrough instead.
+            // (Screenshot mode below still overrides with curated demo data.)
+            // Built-in tags come from Tags.defaults; no demo custom tags are seeded.
+            loadedItems = []
+            loadedTags = []
         case .unreadable:
             // Data exists but can't be parsed. Do NOT seed/overwrite — keep an
             // empty working set (no didSet in init, so the file stays intact for

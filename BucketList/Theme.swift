@@ -53,8 +53,10 @@ enum Theme {
         static let peach500 = SwiftUI.Color(light: 0xFF9B7A, dark: 0xCB7257)
         static let peach700 = SwiftUI.Color(light: 0xD96A4A, dark: 0xFF9477)
 
-        // Page background — radial wash on top of paper1.
-        static let pageBackground = SwiftUI.Color(light: 0xFAFCFA, dark: 0x101A14)
+        // Page background — radial wash on top of paper1. The dark value sits a
+        // step below paper0 (the card surface) so cards read as raised above the
+        // ground; a black shadow can't do that separation on a dark page.
+        static let pageBackground = SwiftUI.Color(light: 0xFAFCFA, dark: 0x0C1510)
     }
 
     enum Font {

@@ -410,7 +410,13 @@ struct ListRow: View {
                     }
                 )
                 .offset(x: clampedOffset)
-                .gesture(swipeGesture)
+                // simultaneousGesture (not .gesture): a plain .gesture DragGesture
+                // claims the touch as soon as it passes minimumDistance and starves
+                // the enclosing ScrollView, so a vertical pan that starts on a row
+                // never scrolls. Running simultaneously lets the ScrollView keep
+                // scrolling; the directional guard in onChanged means the row only
+                // moves for horizontal-dominant drags.
+                .simultaneousGesture(swipeGesture)
                 .contextMenu {
                     if !store.selectionMode {
                         Button {
@@ -528,6 +534,14 @@ struct ListRow: View {
             store.selection.contains(item.id) ? Theme.Color.green700.opacity(0.10) : Color.clear
         )
         .background(Theme.Color.paper0)
+        // Hairline card edge. In light it's a faint outline; in dark it's the
+        // primary separator — a black stickerShadow is invisible on the dark page,
+        // so without this the cards blend into the background. strokeBorder keeps
+        // the line inside the bounds so the outer clipShape never trims it.
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Theme.Color.cardBorder, lineWidth: 1)
+        )
         .contentShape(Rectangle())
         .onTapGesture { handleTap() }
         .accessibilityElement(children: .combine)

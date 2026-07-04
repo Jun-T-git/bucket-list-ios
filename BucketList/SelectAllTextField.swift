@@ -31,6 +31,14 @@ struct SelectAllTextField: UIViewRepresentable {
                      action: #selector(Coordinator.editingChanged(_:)),
                      for: .editingChanged)
         tf.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        // A single-line UITextField resists horizontal compression at high
+        // priority (750), so a long value reports its FULL text width as the
+        // required width. Left at that, a long shared title (e.g. an X post
+        // pasted into the share sheet) pushes the whole form wider than the
+        // screen until the field's text shrinks — the "レイアウトが崩れる" bug.
+        // Drop the resistance so the field yields to the offered width and
+        // truncates/scrolls internally instead of blowing out the layout.
+        tf.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         if autofocus {
             // Match the sheet's slide-in so the keyboard doesn't race the transition.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { tf.becomeFirstResponder() }
@@ -43,6 +51,17 @@ struct SelectAllTextField: UIViewRepresentable {
         // ここで代入すると変換セッションが壊れるため、確定後に同期する。
         if uiView.markedTextRange == nil, uiView.text != text { uiView.text = text }
         uiView.placeholder = placeholder
+    }
+
+    // Adopt the width SwiftUI offers rather than the field's intrinsic (full
+    // single-line text) width, so a long title can never widen the enclosing
+    // form past the screen. Height stays intrinsic (the caller also pins it).
+    // A nil/infinite proposal (unbounded context) falls back to intrinsic.
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextField, context: Context) -> CGSize? {
+        let intrinsic = uiView.intrinsicContentSize
+        let width: CGFloat
+        if let w = proposal.width, w.isFinite { width = w } else { width = intrinsic.width }
+        return CGSize(width: width, height: intrinsic.height)
     }
 
     final class Coordinator: NSObject, UITextFieldDelegate {
