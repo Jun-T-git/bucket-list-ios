@@ -4,6 +4,9 @@ struct SettingsView: View {
     @EnvironmentObject var store: AppStore
     @EnvironmentObject var pro: ProStore
     @State private var showPaywall = false
+    @State private var legalSheet: LegalKind? = nil
+
+    enum LegalKind: String, Identifiable { case privacy, terms; var id: String { rawValue } }
 
     // Marketing version (CFBundleShortVersionString) plus build number,
     // read from the bundle so the displayed value never drifts from the
@@ -25,10 +28,10 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            content
-                .toolbar(.hidden, for: .navigationBar)
-        }
+        // No NavigationStack here: it would swallow ContentView's bottom
+        // safeAreaInset (the floating tab bar) and hide the footer behind it.
+        // Privacy / Terms open as sheets instead (see `legalSheet`).
+        content
     }
 
     private var content: some View {
@@ -127,8 +130,9 @@ struct SettingsView: View {
                     }
                     .buttonStyle(.plain)
 
-                    NavigationLink {
-                        PrivacyPolicyView()
+                    Button {
+                        Haptics.tap()
+                        legalSheet = .privacy
                     } label: {
                         SettingsRow(label: "プライバシー",
                                     sub: "データの扱いについて") {
@@ -137,8 +141,9 @@ struct SettingsView: View {
                     }
                     .buttonStyle(.plain)
 
-                    NavigationLink {
-                        TermsOfUseView()
+                    Button {
+                        Haptics.tap()
+                        legalSheet = .terms
                     } label: {
                         SettingsRow(label: "利用規約",
                                     sub: "ご利用にあたって") {
@@ -179,6 +184,21 @@ struct SettingsView: View {
             PaywallView()
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
+        }
+        .sheet(item: $legalSheet) { kind in
+            NavigationStack {
+                Group {
+                    switch kind {
+                    case .privacy: PrivacyPolicyView()
+                    case .terms:   TermsOfUseView()
+                    }
+                }
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("完了") { legalSheet = nil }
+                    }
+                }
+            }
         }
     }
 
