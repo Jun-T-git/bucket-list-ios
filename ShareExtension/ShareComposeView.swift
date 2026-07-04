@@ -85,7 +85,7 @@ struct ShareComposeView: View {
                 .padding(.top, 12)
             }
             .background(Theme.Color.pageBackground)
-            .navigationTitle("バケットリストに追加")
+            .navigationTitle("Wishesに追加")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("キャンセル") { onCancel() } }

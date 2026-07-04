@@ -1,7 +1,7 @@
 import SwiftUI
 import StoreKit
 
-// Owns the single in-app purchase: バケットリスト Pro, a one-time non-consumable
+// Owns the single in-app purchase: Wishes Pro, a one-time non-consumable
 // that unlocks unlimited URL auto-import. StoreKit 2 only (iOS 17+).
 //
 // This type is the host app's source of truth for the entitlement. The Share

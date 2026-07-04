@@ -1,4 +1,4 @@
-# リリース手順書（バケットリスト v1.0 / iPhone）
+# リリース手順書（Wishes: やりたいことリスト v1.0 / iPhone）
 
 コード・設定側は準備完了（Release ビルド/アーカイブ検証済み・iPhone限定・privacy manifest 同梱）。
 残りは Apple アカウント上の手動作業。上から順に進める。メタデータは `app-store-metadata.md` からコピペ。
@@ -25,7 +25,7 @@
 ## 2. アプリを新規作成
 App Store Connect → **マイApp** → **＋** → 新規App:
 - プラットフォーム: iOS
-- 名前: **バケットリスト**
+- 名前: **Wishes: やりたいことリスト**
 - 主要言語: 日本語
 - バンドルID: `teratech.BucketList`
 - SKU: `bucket-list-ios`

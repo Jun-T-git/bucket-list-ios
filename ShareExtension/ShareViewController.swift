@@ -3,7 +3,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 // Principal class for the share extension. The system shows this view
-// controller in a sheet when the user picks バケットリスト from the share
+// controller in a sheet when the user picks Wishes from the share
 // sheet. We pull the shared URL / text / page title out of the
 // extensionContext, then host the SwiftUI confirm sheet (ShareComposeView).
 final class ShareViewController: UIViewController {

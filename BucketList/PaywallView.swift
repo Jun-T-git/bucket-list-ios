@@ -46,7 +46,7 @@ struct PaywallView: View {
                 Image(systemName: "sparkles")
                     .font(.system(size: 18, weight: .bold))
                     .foregroundColor(Theme.Color.green700)
-                Text("バケットリスト Pro")
+                Text("Wishes Pro")
                     .font(Theme.Font.display(24, weight: .bold))
                     .foregroundColor(Theme.Color.ink0)
             }

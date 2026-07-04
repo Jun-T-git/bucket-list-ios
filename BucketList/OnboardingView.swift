@@ -632,7 +632,7 @@ private struct NotifyPage: View {
                         .foregroundColor(.white))
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
-                    Text("バケットリスト")
+                    Text("Wishes")
                         .font(Theme.Font.sans(11, weight: .semibold))
                         .foregroundColor(Theme.Color.ink2)
                         .tracking(0.3)

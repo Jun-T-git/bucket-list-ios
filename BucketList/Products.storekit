@@ -11,7 +11,7 @@
       "localizations" : [
         {
           "description" : "URLからやりたいことを無制限に自動取り込み。対応端末では端末内AIがタイトル・優先度・季節・タグまで自動で下書きします。",
-          "displayName" : "バケットリスト Pro",
+          "displayName" : "Wishes Pro",
           "locale" : "ja_JP"
         }
       ],

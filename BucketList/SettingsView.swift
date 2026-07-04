@@ -83,7 +83,7 @@ struct SettingsView: View {
                 if FeatureFlags.proEnabled {
                 SettingsGroup(title: "Pro") {
                     if pro.isPro {
-                        SettingsRow(label: "バケットリスト Pro",
+                        SettingsRow(label: "Wishes Pro",
                                     sub: "URL取り込みが無制限でご利用いただけます") {
                             AnyView(Text("解放済み")
                                 .font(Theme.Font.sans(13, weight: .bold))
@@ -159,7 +159,7 @@ struct SettingsView: View {
                 }
 
                 VStack(spacing: 4) {
-                    Text("バケットリスト")
+                    Text("Wishes")
                         .font(Theme.Font.sans(12, weight: .semibold))
                         .foregroundColor(Theme.Color.ink2)
                     Text(versionText)
@@ -443,7 +443,7 @@ private struct LegalParagraph: View {
 struct PrivacyPolicyView: View {
     var body: some View {
         LegalScreen(title: "プライバシー") {
-            LegalParagraph("バケットリストは、あなたのプライバシーを最優先に設計しています。本アプリは、できる限り情報を外部に出さないことを基本方針としています。")
+            LegalParagraph("Wishes は、あなたのプライバシーを最優先に設計しています。本アプリは、できる限り情報を外部に出さないことを基本方針としています。")
             LegalParagraph("作成したリストや設定などのデータは、すべてお使いの端末内（App Group のローカル領域）に保存されます。アカウント登録は不要で、外部のサーバーへデータを送信することはありません。")
             LegalParagraph("広告の表示、行動のトラッキング、利用状況の解析（アナリティクス）は一切行いません。第三者にデータを提供・販売することもありません。")
             LegalParagraph("共有・貼り付けたリンクについては、タイトルやタグを下書きとして補完するために、端末内からそのリンク先のサイトのみにアクセスして内容を読み取ります。読み取った内容そのものを保存することはなく、下書きの作成のみに利用します。")
@@ -457,7 +457,7 @@ struct PrivacyPolicyView: View {
 struct TermsOfUseView: View {
     var body: some View {
         LegalScreen(title: "利用規約") {
-            LegalParagraph("本利用規約は、バケットリスト（以下「本アプリ」）の利用条件を定めるものです。本アプリをご利用いただいた場合、本規約に同意したものとみなします。")
+            LegalParagraph("本利用規約は、Wishes（以下「本アプリ」）の利用条件を定めるものです。本アプリをご利用いただいた場合、本規約に同意したものとみなします。")
             LegalParagraph("本アプリは、現状有姿（提供時点のあるがままの状態）で提供されます。開発者は、本アプリの完全性・正確性・有用性・特定目的への適合性について、明示・黙示を問わず一切の保証を行いません。")
             LegalParagraph("本アプリのデータは端末内に保存されます。端末の故障・紛失・OSの不具合・アプリの削除などによるデータの消失について、開発者は責任を負いません。重要な情報はご自身でも控えをお取りください。")
             LegalParagraph("本アプリの利用に起因または関連して生じたいかなる損害についても、法令で許容される範囲において、開発者は責任を負わないものとします。")

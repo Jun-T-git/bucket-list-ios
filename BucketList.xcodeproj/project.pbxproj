@@ -18,15 +18,19 @@
 		B0010009000000000000A001 /* FilterSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0020009000000000000A001 /* FilterSheet.swift */; };
 		B001000A000000000000A001 /* ReportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B002000A000000000000A001 /* ReportView.swift */; };
 		B001000B000000000000A001 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B002000B000000000000A001 /* SettingsView.swift */; };
-		B001000E000000000000A001 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B002000E000000000000A001 /* OnboardingView.swift */; };
-		B001000F000000000000A001 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B002000F000000000000A001 /* SplashView.swift */; };
 		B001000C000000000000A001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B002000C000000000000A001 /* Assets.xcassets */; };
 		B001000D000000000000A001 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B002000D000000000000A001 /* Preview Assets.xcassets */; };
+		B001000E000000000000A001 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B002000E000000000000A001 /* OnboardingView.swift */; };
+		B001000F000000000000A001 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B002000F000000000000A001 /* SplashView.swift */; };
+		B0010010000000000000A001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B0020010000000000000A001 /* PrivacyInfo.xcprivacy */; };
+		B0010011000000000000A001 /* ProStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0020011000000000000A001 /* ProStore.swift */; };
+		B0010012000000000000A001 /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0020012000000000000A001 /* PaywallView.swift */; };
 		B0E10001000000000000A002 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0E20001000000000000A002 /* ShareViewController.swift */; };
 		B0E10002000000000000A002 /* ShareComposeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0E20002000000000000A002 /* ShareComposeView.swift */; };
 		B0E10003000000000000A002 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0020004000000000000A001 /* Models.swift */; };
 		B0E10004000000000000A002 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0020003000000000000A001 /* Theme.swift */; };
 		B0E10005000000000000A002 /* ShareExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = B0E20005000000000000A002 /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		B0E10006000000000000A002 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B0E20007000000000000A002 /* PrivacyInfo.xcprivacy */; };
 		B0F10001000000000000A003 /* URLMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0F20001000000000000A003 /* URLMetadata.swift */; };
 		B0F10002000000000000A003 /* ItemCandidate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0F20002000000000000A003 /* ItemCandidate.swift */; };
 		B0F10003000000000000A003 /* CandidateGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0F20003000000000000A003 /* CandidateGenerator.swift */; };
@@ -41,14 +45,33 @@
 		B0F40003000000000000A004 /* SelectAllTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0F40001000000000000A004 /* SelectAllTextField.swift */; };
 		B0F40011000000000000A004 /* ItemForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0F40010000000000000A004 /* ItemForm.swift */; };
 		B0F40012000000000000A004 /* ItemForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0F40010000000000000A004 /* ItemForm.swift */; };
-		B0010010000000000000A001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B0020010000000000000A001 /* PrivacyInfo.xcprivacy */; };
-		B0E10006000000000000A002 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B0E20007000000000000A002 /* PrivacyInfo.xcprivacy */; };
-		B0010011000000000000A001 /* ProStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0020011000000000000A001 /* ProStore.swift */; };
-		B0010012000000000000A001 /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0020012000000000000A001 /* PaywallView.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		B0EA0001000000000000A002 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B00A0001000000000000A001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B0E60001000000000000A002;
+			remoteInfo = ShareExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		B0E70001000000000000A002 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				B0E10005000000000000A002 /* ShareExtension.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
-		B0030001000000000000A001 /* BucketList.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BucketList.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B0020001000000000000A001 /* BucketListApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BucketListApp.swift; sourceTree = "<group>"; };
 		B0020002000000000000A001 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		B0020003000000000000A001 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
@@ -60,16 +83,21 @@
 		B0020009000000000000A001 /* FilterSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterSheet.swift; sourceTree = "<group>"; };
 		B002000A000000000000A001 /* ReportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportView.swift; sourceTree = "<group>"; };
 		B002000B000000000000A001 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		B002000E000000000000A001 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
-		B002000F000000000000A001 /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
 		B002000C000000000000A001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B002000D000000000000A001 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		B002000E000000000000A001 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		B002000F000000000000A001 /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
+		B0020010000000000000A001 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		B0020011000000000000A001 /* ProStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProStore.swift; sourceTree = "<group>"; };
+		B0020012000000000000A001 /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
+		B0030001000000000000A001 /* バケットリスト.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "バケットリスト.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		B0E20001000000000000A002 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		B0E20002000000000000A002 /* ShareComposeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareComposeView.swift; sourceTree = "<group>"; };
 		B0E20003000000000000A002 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B0E20004000000000000A002 /* ShareExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ShareExtension.entitlements; sourceTree = "<group>"; };
 		B0E20005000000000000A002 /* ShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		B0E20006000000000000A002 /* BucketList.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BucketList.entitlements; sourceTree = "<group>"; };
+		B0E20007000000000000A002 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		B0F20001000000000000A003 /* URLMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLMetadata.swift; sourceTree = "<group>"; };
 		B0F20002000000000000A003 /* ItemCandidate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemCandidate.swift; sourceTree = "<group>"; };
 		B0F20003000000000000A003 /* CandidateGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CandidateGenerator.swift; sourceTree = "<group>"; };
@@ -77,10 +105,6 @@
 		B0F20005000000000000A003 /* RuleBasedCandidate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuleBasedCandidate.swift; sourceTree = "<group>"; };
 		B0F40001000000000000A004 /* SelectAllTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectAllTextField.swift; sourceTree = "<group>"; };
 		B0F40010000000000000A004 /* ItemForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemForm.swift; sourceTree = "<group>"; };
-		B0020010000000000000A001 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		B0E20007000000000000A002 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		B0020011000000000000A001 /* ProStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProStore.swift; sourceTree = "<group>"; };
-		B0020012000000000000A001 /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -99,20 +123,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
-
-/* Begin PBXCopyFilesBuildPhase section */
-		B0E70001000000000000A002 /* Embed App Extensions */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 13;
-			files = (
-				B0E10005000000000000A002 /* ShareExtension.appex in Embed App Extensions */,
-			);
-			name = "Embed App Extensions";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXGroup section */
 		B0050001000000000000A001 = {
@@ -152,37 +162,13 @@
 			path = BucketList;
 			sourceTree = "<group>";
 		};
-		B0F50001000000000000A003 /* Capture */ = {
-			isa = PBXGroup;
-			children = (
-				B0F20001000000000000A003 /* URLMetadata.swift */,
-				B0F20002000000000000A003 /* ItemCandidate.swift */,
-				B0F20003000000000000A003 /* CandidateGenerator.swift */,
-				B0F20004000000000000A003 /* OnDeviceModel.swift */,
-				B0F20005000000000000A003 /* RuleBasedCandidate.swift */,
-			);
-			path = Capture;
-			sourceTree = "<group>";
-		};
 		B0050003000000000000A001 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				B0030001000000000000A001 /* BucketList.app */,
+				B0030001000000000000A001 /* バケットリスト.app */,
 				B0E20005000000000000A002 /* ShareExtension.appex */,
 			);
 			name = Products;
-			sourceTree = "<group>";
-		};
-		B0E50001000000000000A002 /* ShareExtension */ = {
-			isa = PBXGroup;
-			children = (
-				B0E20001000000000000A002 /* ShareViewController.swift */,
-				B0E20002000000000000A002 /* ShareComposeView.swift */,
-				B0E20003000000000000A002 /* Info.plist */,
-				B0E20004000000000000A002 /* ShareExtension.entitlements */,
-				B0E20007000000000000A002 /* PrivacyInfo.xcprivacy */,
-			);
-			path = ShareExtension;
 			sourceTree = "<group>";
 		};
 		B0050004000000000000A001 /* Resources */ = {
@@ -200,6 +186,30 @@
 				B002000D000000000000A001 /* Preview Assets.xcassets */,
 			);
 			path = "Preview Content";
+			sourceTree = "<group>";
+		};
+		B0E50001000000000000A002 /* ShareExtension */ = {
+			isa = PBXGroup;
+			children = (
+				B0E20001000000000000A002 /* ShareViewController.swift */,
+				B0E20002000000000000A002 /* ShareComposeView.swift */,
+				B0E20003000000000000A002 /* Info.plist */,
+				B0E20004000000000000A002 /* ShareExtension.entitlements */,
+				B0E20007000000000000A002 /* PrivacyInfo.xcprivacy */,
+			);
+			path = ShareExtension;
+			sourceTree = "<group>";
+		};
+		B0F50001000000000000A003 /* Capture */ = {
+			isa = PBXGroup;
+			children = (
+				B0F20001000000000000A003 /* URLMetadata.swift */,
+				B0F20002000000000000A003 /* ItemCandidate.swift */,
+				B0F20003000000000000A003 /* CandidateGenerator.swift */,
+				B0F20004000000000000A003 /* OnDeviceModel.swift */,
+				B0F20005000000000000A003 /* RuleBasedCandidate.swift */,
+			);
+			path = Capture;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -221,7 +231,7 @@
 			);
 			name = BucketList;
 			productName = BucketList;
-			productReference = B0030001000000000000A001 /* BucketList.app */;
+			productReference = B0030001000000000000A001 /* バケットリスト.app */;
 			productType = "com.apple.product-type.application";
 		};
 		B0E60001000000000000A002 /* ShareExtension */ = {
@@ -349,16 +359,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
-
-/* Begin PBXContainerItemProxy section */
-		B0EA0001000000000000A002 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = B00A0001000000000000A001 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = B0E60001000000000000A002 /* ShareExtension */;
-			remoteInfo = ShareExtension;
-		};
-/* End PBXContainerItemProxy section */
 
 /* Begin PBXTargetDependency section */
 		B0E90001000000000000A002 /* PBXTargetDependency */ = {
@@ -495,13 +495,12 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = BucketList/BucketList.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = JD7L34U2WS;
-				OTHER_LDFLAGS = "-weak_framework FoundationModels";
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"BucketList/Preview Content\"";
+				DEVELOPMENT_TEAM = JD7L34U2WS;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "バケットリスト";
+				INFOPLIST_KEY_CFBundleDisplayName = "Wishes";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -513,11 +512,15 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"-weak_framework",
+					FoundationModels,
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = teratech.BucketList;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "Wishes";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
@@ -528,13 +531,12 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = BucketList/BucketList.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = JD7L34U2WS;
-				OTHER_LDFLAGS = "-weak_framework FoundationModels";
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"BucketList/Preview Content\"";
+				DEVELOPMENT_TEAM = JD7L34U2WS;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "バケットリスト";
+				INFOPLIST_KEY_CFBundleDisplayName = "Wishes";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -546,11 +548,15 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"-weak_framework",
+					FoundationModels,
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = teratech.BucketList;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "Wishes";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};
@@ -559,9 +565,8 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = ShareExtension/ShareExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = JD7L34U2WS;
-				OTHER_LDFLAGS = "-weak_framework FoundationModels";
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = JD7L34U2WS;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = ShareExtension/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -571,12 +576,16 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"-weak_framework",
+					FoundationModels,
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = teratech.BucketList.ShareExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
@@ -585,9 +594,8 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = ShareExtension/ShareExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = JD7L34U2WS;
-				OTHER_LDFLAGS = "-weak_framework FoundationModels";
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = JD7L34U2WS;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = ShareExtension/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -597,32 +605,36 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"-weak_framework",
+					FoundationModels,
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = teratech.BucketList.ShareExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		B00B0001000000000000A001 /* Build configuration list for PBXProject "BucketList" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				B00C0001000000000000A001 /* Debug */,
-				B00C0002000000000000A001 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		B0070001000000000000A001 /* Build configuration list for PBXNativeTarget "BucketList" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				B00C0003000000000000A001 /* Debug */,
 				B00C0004000000000000A001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B00B0001000000000000A001 /* Build configuration list for PBXProject "BucketList" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B00C0001000000000000A001 /* Debug */,
+				B00C0002000000000000A001 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

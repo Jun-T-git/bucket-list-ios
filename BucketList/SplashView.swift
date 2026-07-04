@@ -34,7 +34,7 @@ struct SplashView: View {
                     .scaleEffect(lift ? 1 : 0.86)
 
                 VStack(spacing: 7) {
-                    Text("バケットリスト")
+                    Text("Wishes")
                         .font(Theme.Font.display(26, weight: .bold))
                         .foregroundColor(Theme.Color.ink0)
                     Text("やりたいことを、ためておく。")
@@ -49,7 +49,7 @@ struct SplashView: View {
         .contentShape(Rectangle())
         .onTapGesture { finish() }
         .accessibilityAddTraits(.isButton)
-        .accessibilityLabel("バケットリスト")
+        .accessibilityLabel("Wishes")
         .accessibilityHint("タップで起動")
         .task { await play() }
     }
