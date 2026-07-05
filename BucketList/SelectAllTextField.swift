@@ -14,7 +14,6 @@ struct SelectAllTextField: UIViewRepresentable {
     var returnKey: UIReturnKeyType = .done
     var maxLength: Int? = nil
     var onBeganEditing: (() -> Void)? = nil
-    var onReturn: (() -> Void)? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -97,7 +96,7 @@ struct SelectAllTextField: UIViewRepresentable {
         }
 
         func textFieldShouldReturn(_ tf: UITextField) -> Bool {
-            if let onReturn = parent.onReturn { onReturn() } else { tf.resignFirstResponder() }
+            tf.resignFirstResponder()
             return true
         }
     }

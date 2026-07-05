@@ -57,7 +57,7 @@ struct ToastView: View {
         .padding(.horizontal, 18)
         .padding(.vertical, 10)
         .background(
-            Capsule().fill(Color(light: 0x0F1A12, dark: 0x222C26))
+            Capsule().fill(Theme.Color.toastSurface)
         )
         .floatShadow()
         .fixedSize(horizontal: false, vertical: true)
@@ -272,20 +272,6 @@ private struct CheckmarkShape: Shape {
 // Moved to ItemForm.swift (a file shared by both the app and the share
 // extension) so the standalone extension can use them too. Components.swift
 // stays app-only because TagChip/TagChipsRow below depend on AppStore.
-
-// MARK: - Hint line
-
-struct HintLine: View {
-    let content: AnyView
-    init<V: View>(@ViewBuilder _ make: () -> V) { self.content = AnyView(make()) }
-    var body: some View {
-        content
-            .font(Theme.Font.hand(13))
-            .foregroundColor(Theme.Color.ink2)
-            .multilineTextAlignment(.center)
-            .padding(.horizontal, 8)
-    }
-}
 
 // MARK: - Press scale modifier
 

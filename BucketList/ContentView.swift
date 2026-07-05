@@ -266,8 +266,7 @@ struct BulkDoneSheet: View {
 
                 Button {
                     store.setDone(ids: store.selection, done: true, date: date)
-                    store.setSelectionMode(false)
-                    onClose()
+                    finishSelection()
                 } label: {
                     Text("達成にする")
                         .font(Theme.Font.display(16, weight: .bold))
@@ -279,8 +278,7 @@ struct BulkDoneSheet: View {
 
                 Button {
                     store.setDone(ids: store.selection, done: false)
-                    store.setSelectionMode(false)
-                    onClose()
+                    finishSelection()
                 } label: {
                     Text("未達成に戻す")
                         .font(Theme.Font.sans(15, weight: .semibold))
@@ -294,6 +292,12 @@ struct BulkDoneSheet: View {
             Spacer(minLength: 0)
         }
         .background(Theme.Color.pageBackground)
+    }
+
+    // Leave selection mode and dismiss after a bulk done/undone action.
+    private func finishSelection() {
+        store.setSelectionMode(false)
+        onClose()
     }
 }
 
@@ -418,9 +422,9 @@ struct CustomTabBar: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 0) {
-            tabButton(.home, label: "リスト", icon: AnyView(tabIcon("checklist", active: selected == .home)))
-            tabButton(.records, label: "レポート", icon: AnyView(tabIcon("chart.bar.fill", active: selected == .records)))
-            tabButton(.settings, label: "設定", icon: AnyView(tabIcon("gearshape.fill", active: selected == .settings)))
+            tabButton(.home, label: "リスト", icon: "checklist")
+            tabButton(.records, label: "レポート", icon: "chart.bar.fill")
+            tabButton(.settings, label: "設定", icon: "gearshape.fill")
         }
         .padding(.vertical, 10).padding(.horizontal, 12)
         .glass(in: RoundedRectangle(cornerRadius: 32, style: .continuous))
@@ -437,13 +441,13 @@ struct CustomTabBar: View {
             .frame(width: 24, height: 24)
     }
 
-    private func tabButton(_ tab: AppStore.Tab, label: String, icon: AnyView) -> some View {
+    private func tabButton(_ tab: AppStore.Tab, label: String, icon iconName: String) -> some View {
         let on = selected == tab
         return Button {
             withAnimation(.easeOut(duration: 0.14)) { selected = tab }
         } label: {
             VStack(spacing: 4) {
-                icon.frame(width: 24, height: 24)
+                tabIcon(iconName, active: on).frame(width: 24, height: 24)
                 Text(label)
                     .font(Theme.Font.sans(11, weight: on ? .bold : .medium))
                     .foregroundColor(on ? Theme.Color.green500 : Theme.Color.ink2)

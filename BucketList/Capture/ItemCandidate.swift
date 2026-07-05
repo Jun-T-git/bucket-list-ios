@@ -13,13 +13,8 @@ struct ItemCandidate {
     // from the URL. Lets callers distinguish "couldn't read this link at all"
     // from "read something, but be unsure" (low confidence with real signal).
     var readable: Bool = true
-    var reason: String
     var sourceURL: URL?
     var canonical: URL?
-    var sourceType: SourceType
-    // For the link-preview row in the confirm sheet (not part of saved data).
-    var previewImageData: Data? = nil
-    var previewSourceTitle: String? = nil
 
     var bestURL: URL? { canonical ?? sourceURL }
 
@@ -33,12 +28,11 @@ struct ItemCandidate {
     var shouldConfirm: Bool { needsUserConfirmation || confidence < Self.lowConfidenceThreshold }
 
     // Safe placeholder used whenever nothing better could be derived.
-    static func fallback(url: URL?, sourceType: SourceType = .unknown) -> ItemCandidate {
+    static func fallback(url: URL?) -> ItemCandidate {
         ItemCandidate(
             title: "このURLを確認する", tags: [], seasons: [.any], priority: .maybe,
             confidence: 0.2, needsUserConfirmation: true, readable: false,
-            reason: "URLから十分な情報を取得できなかったため",
-            sourceURL: url, canonical: nil, sourceType: sourceType
+            sourceURL: url, canonical: nil
         )
     }
 }

@@ -57,6 +57,10 @@ enum Theme {
         // step below paper0 (the card surface) so cards read as raised above the
         // ground; a black shadow can't do that separation on a dark page.
         static let pageBackground = SwiftUI.Color(light: 0xFAFCFA, dark: 0x0C1510)
+
+        // Toast capsule surface — a near-black ink in light, a raised dark surface
+        // in dark so the toast reads above the page rather than merging into it.
+        static let toastSurface = SwiftUI.Color(light: 0x0F1A12, dark: 0x222C26)
     }
 
     enum Font {
@@ -101,14 +105,6 @@ enum Theme {
 }
 
 extension Color {
-    // Hex initializer kept for any one-off uses outside Theme.Color.
-    init(hex: UInt32, opacity: Double = 1.0) {
-        let r = Double((hex >> 16) & 0xFF) / 255.0
-        let g = Double((hex >> 8) & 0xFF) / 255.0
-        let b = Double(hex & 0xFF) / 255.0
-        self.init(.sRGB, red: r, green: g, blue: b, opacity: opacity)
-    }
-
     // Dynamic Color that resolves per trait collection. Used by Theme.Color
     // so every token automatically adapts to Light / Dark.
     init(light: UInt32, dark: UInt32) {
@@ -167,16 +163,13 @@ extension View {
 // for tab/segment changes, Haptics.success()/warning() for state changes.
 enum Haptics {
     private static let lightImpact = UIImpactFeedbackGenerator(style: .light)
-    private static let medImpact   = UIImpactFeedbackGenerator(style: .medium)
     private static let rigidImpact = UIImpactFeedbackGenerator(style: .rigid)
     private static let selectionGen = UISelectionFeedbackGenerator()
     private static let notify = UINotificationFeedbackGenerator()
 
     static func light()   { lightImpact.impactOccurred() }
-    static func medium()  { medImpact.impactOccurred() }
     static func tap()     { rigidImpact.impactOccurred(intensity: 0.7) }
     static func select()  { selectionGen.selectionChanged() }
     static func success() { notify.notificationOccurred(.success) }
     static func warning() { notify.notificationOccurred(.warning) }
-    static func error()   { notify.notificationOccurred(.error) }
 }

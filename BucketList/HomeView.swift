@@ -452,7 +452,7 @@ struct ListRow: View {
 
     // MARK: row content
     private var rowBody: some View {
-        let matchesNow = (item.seasons.isEmpty ? [SeasonTag.any] : item.seasons)
+        let matchesNow = item.normalizedSeasons
             .contains { $0 == .month(Clock.month) || $0 == .season(Clock.season) }
 
         return HStack(alignment: .center, spacing: 8) {
@@ -494,7 +494,7 @@ struct ListRow: View {
                     // Priority leads the chip row so it always survives the
                     // one-line cap, and reads as just another chip — not a badge.
                     PriorityChip(priority: item.priority, dim: item.done)
-                    let seasonTags = item.seasons.isEmpty ? [SeasonTag.any] : item.seasons
+                    let seasonTags = item.normalizedSeasons
                     ForEach(Array(seasonTags.prefix(3).enumerated()), id: \.offset) { _, t in
                         SeasonChip(tag: t, dim: item.done)
                     }

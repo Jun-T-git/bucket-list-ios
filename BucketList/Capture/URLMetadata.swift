@@ -1,8 +1,5 @@
 import Foundation
 import LinkPresentation
-#if canImport(UIKit)
-import UIKit
-#endif
 
 // MARK: - Source type
 
@@ -109,7 +106,6 @@ struct LinkMetadata: Sendable {
     var siteName: String?     // og:site_name — often the real business/brand name
     var placeName: String?    // extracted from a Google Maps URL path/query
     var canonical: URL?
-    var imageData: Data?      // for the preview row only; not sent to the model
 
     var bestURL: URL { canonical ?? resolvedURL }
 }
@@ -176,10 +172,9 @@ enum MetadataFetcher {
         // For maps, the place name in the URL beats any page title.
         if sourceType == .googleMaps { meta.placeName = GoogleMapsURL.placeName(from: resolved) }
 
-        // 1) LinkPresentation — title + preview image.
-        if let lp = await fetchLinkPresentation(resolved) {
-            meta.title = lp.title
-            meta.imageData = lp.imageData
+        // 1) LinkPresentation — a clean title.
+        if let title = await fetchLinkPresentation(resolved) {
+            meta.title = title
         }
 
         // 2) HTML only when it can add something LP/maps didn't. Maps already has
@@ -233,29 +228,11 @@ enum MetadataFetcher {
 
     // MARK: LinkPresentation
 
-    private struct LPResult { var title: String?; var imageData: Data? }
-
-    private static func fetchLinkPresentation(_ url: URL) async -> LPResult? {
+    private static func fetchLinkPresentation(_ url: URL) async -> String? {
         let provider = LPMetadataProvider()
         provider.timeout = requestTimeout
         guard let metadata = try? await provider.startFetchingMetadata(for: url) else { return nil }
-        let title = metadata.title
-        let imageData = await loadImageData(from: metadata.imageProvider ?? metadata.iconProvider)
-        return LPResult(title: title, imageData: imageData)
-    }
-
-    private static func loadImageData(from provider: NSItemProvider?) async -> Data? {
-        guard let provider else { return nil }
-        #if canImport(UIKit)
-        guard provider.canLoadObject(ofClass: UIImage.self) else { return nil }
-        return await withCheckedContinuation { cont in
-            provider.loadObject(ofClass: UIImage.self) { object, _ in
-                cont.resume(returning: (object as? UIImage)?.jpegData(compressionQuality: 0.7))
-            }
-        }
-        #else
-        return nil
-        #endif
+        return metadata.title
     }
 
     // MARK: HTML / OGP (capped)

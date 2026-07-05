@@ -16,7 +16,6 @@ import SwiftUI
 
 struct OnboardingView: View {
     @EnvironmentObject var store: AppStore
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var page = 0
     private let pageCount = 5

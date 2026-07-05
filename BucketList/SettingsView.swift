@@ -27,6 +27,18 @@ struct SettingsView: View {
             .foregroundColor(Theme.Color.ink3)
     }
 
+    // A settings row whose control is the app's standard green switch. The
+    // VoiceOver label matches the row's title, so the merged element reads as
+    // e.g. 「シーズン通知, …, スイッチ, オン」.
+    private func toggleRow(_ label: String, sub: String, isOn: Binding<Bool>) -> some View {
+        SettingsRow(label: label, sub: sub) {
+            AnyView(Toggle("", isOn: isOn)
+                .toggleStyle(SwitchToggleStyle(tint: Theme.Color.green500))
+                .labelsHidden()
+                .accessibilityLabel(label))
+        }
+    }
+
     var body: some View {
         // No NavigationStack here: it would swallow ContentView's bottom
         // safeAreaInset (the floating tab bar) and hide the footer behind it.
@@ -40,37 +52,17 @@ struct SettingsView: View {
                 ScreenHeader(title: "設定")
 
                 SettingsGroup(title: "通知") {
-                    SettingsRow(label: "シーズン通知",
-                                sub: "季節のはじまりにおすすめを通知") {
-                        AnyView(Toggle("", isOn: $store.tweaks.seasonNudge)
-                            .toggleStyle(SwitchToggleStyle(tint: Theme.Color.green500))
-                            .labelsHidden()
-                            .accessibilityLabel("シーズン通知"))
-                    }
-                    SettingsRow(label: "週末リマインド",
-                                sub: "金曜の夕方に今週末の候補を通知") {
-                        AnyView(Toggle("", isOn: $store.tweaks.weekendNudge)
-                            .toggleStyle(SwitchToggleStyle(tint: Theme.Color.green500))
-                            .labelsHidden()
-                            .accessibilityLabel("週末リマインド"))
-                    }
-                    SettingsRow(label: "月末リマインド",
-                                sub: "今月のものを月末に通知") {
-                        AnyView(Toggle("", isOn: $store.tweaks.monthEndNudge)
-                            .toggleStyle(SwitchToggleStyle(tint: Theme.Color.green500))
-                            .labelsHidden()
-                            .accessibilityLabel("月末リマインド"))
-                    }
+                    toggleRow("シーズン通知", sub: "季節のはじまりにおすすめを通知",
+                              isOn: $store.tweaks.seasonNudge)
+                    toggleRow("週末リマインド", sub: "金曜の夕方に今週末の候補を通知",
+                              isOn: $store.tweaks.weekendNudge)
+                    toggleRow("月末リマインド", sub: "今月のものを月末に通知",
+                              isOn: $store.tweaks.monthEndNudge)
                 }
 
                 SettingsGroup(title: "AI 機能") {
-                    SettingsRow(label: "自動分類",
-                                sub: "追加時に優先度・季節を下書き") {
-                        AnyView(Toggle("", isOn: $store.tweaks.autoClassify)
-                            .toggleStyle(SwitchToggleStyle(tint: Theme.Color.green500))
-                            .labelsHidden()
-                            .accessibilityLabel("自動分類"))
-                    }
+                    toggleRow("自動分類", sub: "追加時に優先度・季節を下書き",
+                              isOn: $store.tweaks.autoClassify)
                 }
 
                 SettingsGroup(title: "タグ") {

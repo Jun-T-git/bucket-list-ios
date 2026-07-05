@@ -102,6 +102,14 @@ struct ItemForm: View {
         focusedField = nil
     }
 
+    // Shared rounded paper1 field chrome for the single-/multi-line text inputs
+    // (URL + メモ), so the two containers can't drift apart.
+    private var fieldBackground: some View {
+        RoundedRectangle(cornerRadius: 12).fill(Theme.Color.paper1)
+            .overlay(RoundedRectangle(cornerRadius: 12)
+                .stroke(Theme.Color.hairline, lineWidth: 1))
+    }
+
     // MARK: title
 
     private var titleField: some View {
@@ -139,11 +147,7 @@ struct ItemForm: View {
             .focused($focusedField, equals: .memo)
             .frame(maxWidth: .infinity, alignment: .topLeading)
             .padding(.horizontal, 14).padding(.vertical, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 12).fill(Theme.Color.paper1)
-                    .overlay(RoundedRectangle(cornerRadius: 12)
-                        .stroke(Theme.Color.hairline, lineWidth: 1))
-            )
+            .background(fieldBackground)
     }
 
     // MARK: URL area
@@ -174,11 +178,7 @@ struct ItemForm: View {
                 }
             }
             .padding(.horizontal, 14).padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 12).fill(Theme.Color.paper1)
-                    .overlay(RoundedRectangle(cornerRadius: 12)
-                        .stroke(Theme.Color.hairline, lineWidth: 1))
-            )
+            .background(fieldBackground)
 
             if let urlNotice { noticeRow(urlNotice) }
             if let preview { previewCard(preview) }
@@ -541,20 +541,12 @@ struct FlowLayout: Layout {
 // Small uppercase section label used in the sheets.
 struct SectionLabel: View {
     let text: String
-    var trailing: String?
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Text(text)
-                .font(Theme.Font.sans(11, weight: .regular))
-                .foregroundColor(Theme.Color.ink2)
-                .tracking(0.6)
-                .textCase(.uppercase)
-            if let trailing {
-                Text(trailing)
-                    .font(Theme.Font.hand(11))
-                    .foregroundColor(Theme.Color.ink3)
-            }
-        }
+        Text(text)
+            .font(Theme.Font.sans(11, weight: .regular))
+            .foregroundColor(Theme.Color.ink2)
+            .tracking(0.6)
+            .textCase(.uppercase)
     }
 }

@@ -77,7 +77,7 @@ enum RuleBasedCandidate {
                           needsName: true, metadata: metadata, signal: signal, allTags: allTags)
         }
 
-        return ItemCandidate.fallback(url: metadata.bestURL, sourceType: metadata.sourceType)
+        return ItemCandidate.fallback(url: metadata.bestURL)
     }
 
     // MARK: - category detection
@@ -166,10 +166,7 @@ enum RuleBasedCandidate {
         return ItemCandidate(
             title: title, tags: tags, seasons: seasons, priority: priority,
             confidence: confidence, needsUserConfirmation: needsConfirm,
-            reason: needsName ? "名称が特定できなかったため確認推奨" : "メタデータから推定",
-            sourceURL: metadata.resolvedURL, canonical: metadata.canonical,
-            sourceType: metadata.sourceType,
-            previewImageData: metadata.imageData, previewSourceTitle: metadata.title
+            sourceURL: metadata.resolvedURL, canonical: metadata.canonical
         )
     }
 
@@ -191,7 +188,7 @@ enum RuleBasedCandidate {
     }
 
     // Strip "Page Title | Site Name" style suffixes down to the first segment.
-    static func primaryName(_ raw: String?) -> String? {
+    private static func primaryName(_ raw: String?) -> String? {
         guard let raw = raw?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else { return nil }
         let separators: [Character] = ["|", "｜", "–", "—", "－", "・", "»", "·"]
         var best = raw

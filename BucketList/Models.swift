@@ -195,6 +195,11 @@ struct BucketItem: Identifiable, Codable, Equatable, Hashable {
     var url: String?
     var savedAt: String
 
+    // Seasons with the "empty means いつでも" rule applied — an item with no
+    // season tags behaves as `.any`. Filtering, sorting, counting, the report and
+    // the row all read this instead of re-deriving `seasons.isEmpty ? [.any] : …`.
+    var normalizedSeasons: [SeasonTag] { seasons.isEmpty ? [.any] : seasons }
+
     // Decode tolerantly — older payloads may lack `tags` / `doneAt`.
     enum CodingKeys: String, CodingKey {
         case id, title, priority, seasons, tags, meta, done, doneAt, via, url, savedAt
@@ -283,13 +288,6 @@ enum Clock {
     static var isYearEnd: Bool { month == 12 && day >= 15 }
     // Last month of the current season — "夏が終わる前に" territory.
     static var isSeasonClosing: Bool { Season.of(month: nextMonth) != season }
-
-    static var headerKicker: String {
-        let df = DateFormatter()
-        df.locale = Locale(identifier: "ja_JP")
-        df.dateFormat = "yyyy年M月d日（E）"
-        return df.string(from: today)
-    }
 }
 
 // MARK: - Seed
@@ -507,16 +505,6 @@ enum SortMode: String, Codable, CaseIterable, Identifiable {
         case .season:      return "季節順"
         case .name:        return "名前順"
         case .completed:   return "達成順"
-        }
-    }
-    var sub: String {
-        switch self {
-        case .recommended: return "優先度＋季節"
-        case .priority:    return "高い順"
-        case .added:       return "新しい順"
-        case .season:      return "今に近い順"
-        case .name:        return "五十音"
-        case .completed:   return "達成済みが先"
         }
     }
     // Human labels for the two directions, per mode. `.down` is the natural
@@ -1457,7 +1445,7 @@ extension AppStore {
     }
     func passes(filterSeasons it: BucketItem) -> Bool {
         if filters.seasons.isEmpty { return true }
-        let itemTags = it.seasons.isEmpty ? [SeasonTag.any] : it.seasons
+        let itemTags = it.normalizedSeasons
         return filters.seasons.contains { selected in
             if itemTags.contains(selected) { return true }
             if case .season(let s) = selected {
@@ -1473,7 +1461,7 @@ extension AppStore {
     }
 
     func nowScore(_ it: BucketItem) -> Double {
-        let tags = it.seasons.isEmpty ? [SeasonTag.any] : it.seasons
+        let tags = it.normalizedSeasons
         var s = 0.0
         if tags.contains(.month(Clock.month)) { s += 4 }
         if tags.contains(.season(Clock.season)) { s += 2 }
@@ -1484,7 +1472,7 @@ extension AppStore {
     // Months from the current month until a season tag is next active (0 = now).
     // "いつでも" carries no specific season, so it sinks below dated items.
     func seasonRank(_ it: BucketItem) -> Int {
-        let tags = it.seasons.isEmpty ? [SeasonTag.any] : it.seasons
+        let tags = it.normalizedSeasons
         let cur = Clock.month
         var best = Int.max
         for t in tags {
@@ -1560,7 +1548,7 @@ extension AppStore {
 
         var seas: [SeasonTag: Int] = [:]
         for it in forSeas {
-            let itemTags = it.seasons.isEmpty ? [SeasonTag.any] : it.seasons
+            let itemTags = it.normalizedSeasons
             for season in Season.order {
                 let tag = SeasonTag.season(season)
                 let monthTags = season.months.map(SeasonTag.month)
@@ -1753,7 +1741,7 @@ enum NotificationPlanner {
     private static func pick(_ items: [BucketItem], season: Season?) -> BucketItem? {
         func fit(_ it: BucketItem) -> Int {
             guard let season else { return 0 }
-            let tags = it.seasons.isEmpty ? [SeasonTag.any] : it.seasons
+            let tags = it.normalizedSeasons
             for t in tags {
                 switch t {
                 case .season(let s) where s == season: return 2
@@ -1766,7 +1754,8 @@ enum NotificationPlanner {
         let open = items.filter { !$0.done }
         let pool = season == nil ? open : open.filter { fit($0) > 0 }
         return pool.max { a, b in
-            if fit(a) != fit(b) { return fit(a) < fit(b) }
+            let fa = fit(a), fb = fit(b)
+            if fa != fb { return fa < fb }
             if a.priority.weight != b.priority.weight { return a.priority.weight < b.priority.weight }
             return a.id < b.id
         }
@@ -1823,21 +1812,9 @@ extension AppStore {
 }
 
 // MARK: - Seasonal copy
-// Granular hero line that nudges based on the current month.
+// Season-based suggestion line used by the home timing banner's default frame.
 
 enum SeasonalCopy {
-    static func hero(for month: Int = Clock.month) -> String {
-        switch month {
-        case 3, 4: return "春が始まりました"
-        case 5:    return "もうすぐ夏です"
-        case 6, 7: return "夏本番です"
-        case 8:    return "もうすぐ秋です"
-        case 9, 10: return "秋本番です"
-        case 11:   return "もうすぐ冬です"
-        case 12, 1: return "冬本番です"
-        default:   return "もうすぐ春です"
-        }
-    }
     static func suggestionLine(for season: Season) -> String {
         switch season {
         case .spring: return "春におすすめ"

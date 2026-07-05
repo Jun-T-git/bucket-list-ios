@@ -77,7 +77,7 @@ extension AppStore {
         var pending: [Season: [BucketItem]] = [:]
         for s in Season.order { pending[s] = [] }
         for it in items where !it.done {
-            let tags = it.seasons.isEmpty ? [SeasonTag.any] : it.seasons
+            let tags = it.normalizedSeasons
             var reached: Set<Season> = []
             for t in tags {
                 if case .season(let s) = t { reached.insert(s) }

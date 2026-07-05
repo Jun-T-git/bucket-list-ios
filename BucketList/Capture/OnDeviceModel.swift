@@ -8,17 +8,6 @@ import FoundationModels
 // rule-based fallback". No data ever leaves the device.
 enum OnDeviceModel {
 
-    // True only when the framework exists, the OS is new enough, and the system
-    // model is actually downloaded/enabled (Apple Intelligence on a capable device).
-    static var isAvailable: Bool {
-        #if canImport(FoundationModels)
-        if #available(iOS 26.0, *) {
-            return SystemLanguageModel.default.availability == .available
-        }
-        #endif
-        return false
-    }
-
     // Returns a validated candidate, or nil if the model is unavailable / errors
     // out (timeout, guardrails, decode failure) — never throws to the caller.
     // Bound on how long we wait for the model before falling back to the
@@ -107,9 +96,8 @@ extension OnDeviceModel {
             return ItemCandidate(
                 title: title, tags: tags, seasons: seasons, priority: priority,
                 confidence: min(max(g.confidence, 0), 1), needsUserConfirmation: g.needsUserConfirmation,
-                reason: "オンデバイスAIが生成", sourceURL: metadata.resolvedURL,
-                canonical: metadata.canonical, sourceType: metadata.sourceType,
-                previewImageData: metadata.imageData, previewSourceTitle: metadata.title
+                sourceURL: metadata.resolvedURL,
+                canonical: metadata.canonical
             )
         } catch {
             return nil
