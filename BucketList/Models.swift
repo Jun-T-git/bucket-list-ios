@@ -119,11 +119,11 @@ enum Season: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-// A SeasonTag is the multi-select element used on items: a season,
-// a specific month, or the "any" wildcard.
+// A SeasonTag is the multi-select element used on items: one of the four
+// seasons, or the "any" wildcard. (Month-level granularity was removed — four
+// seasons are enough.)
 enum SeasonTag: Codable, Hashable, Identifiable {
     case season(Season)
-    case month(Int)
     case any
 
     var id: String { storageKey }
@@ -131,27 +131,23 @@ enum SeasonTag: Codable, Hashable, Identifiable {
     var storageKey: String {
         switch self {
         case .season(let s): return s.rawValue
-        case .month(let n):  return "m\(n)"
         case .any:           return "any"
         }
     }
     var ja: String {
         switch self {
         case .season(let s): return s.ja
-        case .month(let n):  return "\(n)月"
         case .any:           return "いつでも"
         }
-    }
-    var isMonth: Bool {
-        if case .month = self { return true }
-        return false
     }
 
     static func from(key: String) -> SeasonTag? {
         if key == "any" { return .any }
         if let s = Season(rawValue: key) { return .season(s) }
+        // Backward compat: legacy month keys ("m4" 等) fold into their season so
+        // existing data isn't lost when months were removed.
         if key.hasPrefix("m"), let n = Int(key.dropFirst()), (1...12).contains(n) {
-            return .month(n)
+            return .season(Season.of(month: n))
         }
         return nil
     }
@@ -218,7 +214,10 @@ struct BucketItem: Identifiable, Codable, Equatable, Hashable {
         title = try c.decode(String.self, forKey: .title)
         priority = try c.decode(Priority.self, forKey: .priority)
         let seasonKeys = try c.decode([String].self, forKey: .seasons)
-        seasons = seasonKeys.compactMap(SeasonTag.from(key:))
+        // Fold + de-dup: legacy month keys map to their season, which can collide
+        // with an existing season tag on the same item.
+        var seenSeasons = Set<SeasonTag>()
+        seasons = seasonKeys.compactMap(SeasonTag.from(key:)).filter { seenSeasons.insert($0).inserted }
         tags = (try? c.decode([String].self, forKey: .tags)) ?? []
         meta = (try? c.decode(String.self, forKey: .meta)) ?? ""
         done = (try? c.decode(Bool.self, forKey: .done)) ?? false
@@ -304,13 +303,13 @@ enum Seed {
               tags: ["leisure", "c-relax"], meta: "寒くなったら",
               done: false, via: nil, url: nil, savedAt: "2026·05·09"),
         .init(id: 3,  title: "春のうちに花見",
-              priority: .top, seasons: [.season(.spring), .month(4)],
+              priority: .top, seasons: [.season(.spring)],
               tags: ["leisure"], meta: "4月上旬",
               done: true, doneAt: BucketItem.parseSavedAt("2026·04·05"),
               via: nil, url: nil, savedAt: "2026·03·12"),
         .init(id: 4,  title: "カニを食べる",
               priority: .maybe,
-              seasons: [.season(.winter), .month(11), .month(12)],
+              seasons: [.season(.winter)],
               tags: ["food", "travel"], meta: "北陸",
               done: false, via: nil, url: nil, savedAt: "2026·01·20"),
         .init(id: 5,  title: "富士山を見にドライブ",
@@ -323,8 +322,7 @@ enum Seed {
               done: false, via: nil, url: nil, savedAt: "2026·04·30"),
         .init(id: 7,  title: "オーロラを見に行く",
               priority: .someday,
-              seasons: [.season(.winter), .month(11), .month(12),
-                        .month(1), .month(2), .month(3)],
+              seasons: [.season(.winter)],
               tags: ["travel"], meta: "アイスランド",
               done: false, via: "Safari",
               url: "iceland-aurora.example.com/tours", savedAt: "2025·12·04"),
@@ -338,11 +336,11 @@ enum Seed {
               done: false, via: nil, url: nil, savedAt: "2025·10·08"),
         .init(id: 10, title: "海でBBQ",
               priority: .top,
-              seasons: [.season(.summer), .month(7), .month(8)],
+              seasons: [.season(.summer)],
               tags: ["food", "leisure"], meta: "夏のうちに",
               done: false, via: nil, url: nil, savedAt: "2026·05·14"),
         .init(id: 11, title: "京都の紅葉",
-              priority: .maybe, seasons: [.season(.fall), .month(11)],
+              priority: .maybe, seasons: [.season(.fall)],
               tags: ["travel", "leisure"], meta: "11月中旬",
               done: false, via: "YouTube", url: "youtu.be/kyoto-momiji", savedAt: "2025·10·30"),
     ]
@@ -365,7 +363,7 @@ enum Seed {
               tags: ["food"], meta: "東京・渋谷", done: false,
               via: "X", url: "x.com/foodie_tk/…", savedAt: "2026·07·02"),
         .init(id: 2, title: "海でBBQ", priority: .top,
-              seasons: [.season(.summer), .month(7), .month(8)],
+              seasons: [.season(.summer)],
               tags: ["food", "leisure"], meta: "夏のうちに", done: false,
               via: nil, url: nil, savedAt: "2026·06·30"),
         .init(id: 3, title: "富士山を見にドライブ", priority: .maybe, seasons: [.season(.summer)],
@@ -374,11 +372,11 @@ enum Seed {
         .init(id: 4, title: "一人で映画館", priority: .top, seasons: [.any],
               tags: ["leisure", "c-relax"], meta: "名画座", done: false,
               via: nil, url: nil, savedAt: "2026·06·10"),
-        .init(id: 5, title: "京都の紅葉", priority: .maybe, seasons: [.season(.fall), .month(11)],
+        .init(id: 5, title: "京都の紅葉", priority: .maybe, seasons: [.season(.fall)],
               tags: ["travel", "leisure"], meta: "11月中旬", done: false,
               via: "YouTube", url: "youtu.be/kyoto-momiji", savedAt: "2026·05·28"),
         .init(id: 6, title: "カニを食べる", priority: .maybe,
-              seasons: [.season(.winter), .month(11), .month(12)],
+              seasons: [.season(.winter)],
               tags: ["food", "travel"], meta: "北陸", done: false,
               via: nil, url: nil, savedAt: "2026·05·14"),
         .init(id: 7, title: "友達と銭湯", priority: .top,
@@ -386,7 +384,7 @@ enum Seed {
               tags: ["leisure", "c-relax"], meta: "寒くなったら", done: false,
               via: nil, url: nil, savedAt: "2026·05·09"),
         .init(id: 8, title: "オーロラを見に行く", priority: .someday,
-              seasons: [.season(.winter), .month(11), .month(12), .month(1), .month(2)],
+              seasons: [.season(.winter)],
               tags: ["travel"], meta: "アイスランド", done: false,
               via: "Safari", url: "iceland-aurora.example.com/tours", savedAt: "2026·04·22"),
         .init(id: 9, title: "アメリカ西海岸を旅する", priority: .someday, seasons: [.season(.summer)],
@@ -405,7 +403,7 @@ enum Seed {
               doneAt: BucketItem.parseSavedAt("2026·05·10"),
               via: nil, url: nil, savedAt: "2026·04·20"),
         .init(id: 13, title: "春のうちに花見", priority: .top,
-              seasons: [.season(.spring), .month(4)], tags: ["leisure"], meta: "",
+              seasons: [.season(.spring)], tags: ["leisure"], meta: "",
               done: true, doneAt: BucketItem.parseSavedAt("2026·04·05"),
               via: nil, url: nil, savedAt: "2026·03·12"),
         .init(id: 14, title: "新しいカメラを買う", priority: .maybe, seasons: [.any],
@@ -413,14 +411,14 @@ enum Seed {
               doneAt: BucketItem.parseSavedAt("2026·03·22"),
               via: nil, url: nil, savedAt: "2026·02·28"),
         .init(id: 15, title: "河津桜を見にいく", priority: .maybe,
-              seasons: [.season(.spring), .month(3)], tags: ["travel", "leisure"], meta: "",
+              seasons: [.season(.spring)], tags: ["travel", "leisure"], meta: "",
               done: true, doneAt: BucketItem.parseSavedAt("2026·03·01"),
               via: nil, url: nil, savedAt: "2026·02·10"),
-        .init(id: 16, title: "苺狩り", priority: .maybe, seasons: [.month(2)],
+        .init(id: 16, title: "苺狩り", priority: .maybe, seasons: [.season(.winter)],
               tags: ["food", "leisure"], meta: "", done: true,
               doneAt: BucketItem.parseSavedAt("2026·02·15"),
               via: nil, url: nil, savedAt: "2026·01·25"),
-        .init(id: 17, title: "初詣に行く", priority: .top, seasons: [.month(1)],
+        .init(id: 17, title: "初詣に行く", priority: .top, seasons: [.season(.winter)],
               tags: ["leisure"], meta: "", done: true,
               doneAt: BucketItem.parseSavedAt("2026·01·03"),
               via: nil, url: nil, savedAt: "2025·12·20"),
@@ -1446,15 +1444,7 @@ extension AppStore {
     func passes(filterSeasons it: BucketItem) -> Bool {
         if filters.seasons.isEmpty { return true }
         let itemTags = it.normalizedSeasons
-        return filters.seasons.contains { selected in
-            if itemTags.contains(selected) { return true }
-            if case .season(let s) = selected {
-                let monthTags = s.months.map(SeasonTag.month)
-                if monthTags.contains(where: itemTags.contains) { return true }
-            }
-            if case .any = selected, itemTags.contains(.any) { return true }
-            return false
-        }
+        return filters.seasons.contains { itemTags.contains($0) }
     }
     func passes(filterTags it: BucketItem) -> Bool {
         filters.tags.isEmpty || it.tags.contains(where: filters.tags.contains)
@@ -1463,26 +1453,23 @@ extension AppStore {
     func nowScore(_ it: BucketItem) -> Double {
         let tags = it.normalizedSeasons
         var s = 0.0
-        if tags.contains(.month(Clock.month)) { s += 4 }
         if tags.contains(.season(Clock.season)) { s += 2 }
         if tags.contains(.any) { s += 0.4 }
         return s
     }
 
-    // Months from the current month until a season tag is next active (0 = now).
+    // Seasons from now until a season tag is next active (0 = this season).
     // "いつでも" carries no specific season, so it sinks below dated items.
     func seasonRank(_ it: BucketItem) -> Int {
+        let order = Season.upcoming(from: Clock.season)   // [now, +1, +2, +3]
         let tags = it.normalizedSeasons
-        let cur = Clock.month
         var best = Int.max
         for t in tags {
             switch t {
             case .any:
                 best = min(best, 90)
-            case .month(let m):
-                best = min(best, (m - cur + 12) % 12)
             case .season(let s):
-                for m in s.months { best = min(best, (m - cur + 12) % 12) }
+                if let i = order.firstIndex(of: s) { best = min(best, i) }
             }
         }
         return best == Int.max ? 99 : best
@@ -1551,10 +1538,7 @@ extension AppStore {
             let itemTags = it.normalizedSeasons
             for season in Season.order {
                 let tag = SeasonTag.season(season)
-                let monthTags = season.months.map(SeasonTag.month)
-                if itemTags.contains(tag) || monthTags.contains(where: itemTags.contains) {
-                    seas[tag, default: 0] += 1
-                }
+                if itemTags.contains(tag) { seas[tag, default: 0] += 1 }
             }
             if itemTags.contains(.any) { seas[.any, default: 0] += 1 }
         }
@@ -1584,39 +1568,20 @@ enum Classifier {
     static func seasons(_ title: String) -> [SeasonTag] {
         var out = Set<SeasonTag>()
         let s = title
-        if matches(s, "桜|花見") { out.insert(.season(.spring)); out.insert(.month(4)) }
-        if matches(s, "紫陽花|梅雨") { out.insert(.month(6)) }
-        if matches(s, "夏|海|海水浴|花火|BBQ|ビーチ|プール") { out.insert(.season(.summer)) }
-        if matches(s, "紅葉|秋") { out.insert(.season(.fall)); out.insert(.month(11)) }
-        if matches(s, "雪|スキー|スノボ|イルミ") { out.insert(.season(.winter)) }
-        if matches(s, "カニ") {
-            out.insert(.season(.winter)); out.insert(.month(11)); out.insert(.month(12))
-        }
-        if matches(s, "オーロラ") {
-            out.insert(.season(.winter))
-            [11, 12, 1, 2, 3].forEach { out.insert(.month($0)) }
-        }
-        if matches(s, "富士") { out.insert(.season(.summer)) }
-        // explicit "X月" hints
-        if let re = monthRe {
-            let ns = s as NSString
-            re.enumerateMatches(in: s, range: NSRange(location: 0, length: ns.length)) { m, _, _ in
-                if let m = m, m.numberOfRanges > 1 {
-                    let n = Int(ns.substring(with: m.range(at: 1))) ?? 0
-                    if (1...12).contains(n) { out.insert(.month(n)) }
-                }
-            }
-        }
+        if matches(s, "桜|花見|春") { out.insert(.season(.spring)) }
+        if matches(s, "紫陽花|梅雨|夏|海|海水浴|花火|BBQ|ビーチ|プール|富士") { out.insert(.season(.summer)) }
+        if matches(s, "紅葉|秋") { out.insert(.season(.fall)) }
+        if matches(s, "雪|スキー|スノボ|イルミ|カニ|オーロラ|冬") { out.insert(.season(.winter)) }
         if out.isEmpty { out.insert(.any) }
         return Array(out)
     }
 
     static func tags(_ title: String) -> [String] {
         var out: [String] = []
-        if matches(title, "蕎麦|食|カニ|レストラン|カフェ|BBQ|ランチ|ディナー|ご飯|寿司|ラーメン|焼肉") { out.append("food") }
-        if matches(title, "旅|海外|ツアー|ドライブ|国|アメリカ|アイスランド|京都|沖縄|オーロラ|温泉|富士") { out.append("travel") }
-        if matches(title, "映画|花見|花火|紅葉|海水浴|銭湯|ピクニック|キャンプ|釣り|ライブ|フェス|散歩|公園") { out.append("leisure") }
-        if matches(title, "買|ショッピング|本|服|時計|スニーカー|家具|カメラ") { out.append("shopping") }
+        if matches(title, "蕎麦|食|カニ|レストラン|カフェ|喫茶|居酒屋|バル|ビストロ|食堂|BBQ|ランチ|ディナー|ご飯|寿司|ラーメン|焼肉|グルメ|パン|スイーツ|cafe|café|coffee|restaurant|bar|bistro|bakery|lunch|dinner|ramen|sushi") { out.append("food") }
+        if matches(title, "旅|海外|ツアー|ドライブ|国|アメリカ|アイスランド|京都|沖縄|オーロラ|温泉|富士|宿|ホテル|旅館|観光|絶景|hotel|travel|trip") { out.append("travel") }
+        if matches(title, "映画|花見|花火|紅葉|海水浴|銭湯|ピクニック|キャンプ|釣り|ライブ|フェス|散歩|公園|美術館|博物館|水族館|動物園|イベント") { out.append("leisure") }
+        if matches(title, "買|購入|通販|ショッピング|服|腕時計|スニーカー|家具|カメラ|コスメ|ガジェット|家電|amazon|楽天") { out.append("shopping") }
         return out
     }
 
@@ -1632,7 +1597,6 @@ enum Classifier {
         regexCache[pattern] = re
         return re
     }
-    private static let monthRe = try? NSRegularExpression(pattern: "(\\d{1,2})月")
 
     private static func matches(_ s: String, _ pattern: String) -> Bool {
         guard let re = regex(pattern) else { return false }
@@ -1742,13 +1706,7 @@ enum NotificationPlanner {
         func fit(_ it: BucketItem) -> Int {
             guard let season else { return 0 }
             let tags = it.normalizedSeasons
-            for t in tags {
-                switch t {
-                case .season(let s) where s == season: return 2
-                case .month(let m) where Season.of(month: m) == season: return 2
-                default: continue
-                }
-            }
+            if tags.contains(.season(season)) { return 2 }
             return tags.contains(.any) ? 1 : 0
         }
         let open = items.filter { !$0.done }

@@ -102,11 +102,8 @@ struct SeasonChip: View {
             if case .any = tag { return Theme.Color.paper1 }
             return Theme.Color.paper2
         }()
-        let isMonth = tag.isMonth
-        let font: Font = isMonth ? Theme.Font.mono(10.5, weight: .semibold)
-                                 : Theme.Font.sans(11, weight: .medium)
         return Text(tag.ja)
-            .font(font)
+            .font(Theme.Font.sans(11, weight: .medium))
             .foregroundColor(dim ? Theme.Color.ink3 : Theme.Color.ink1)
             .padding(.horizontal, 9)
             .padding(.vertical, 3)

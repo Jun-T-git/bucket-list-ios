@@ -452,8 +452,7 @@ struct ListRow: View {
 
     // MARK: row content
     private var rowBody: some View {
-        let matchesNow = item.normalizedSeasons
-            .contains { $0 == .month(Clock.month) || $0 == .season(Clock.season) }
+        let matchesNow = item.normalizedSeasons.contains(.season(Clock.season))
 
         return HStack(alignment: .center, spacing: 8) {
             if store.selectionMode {

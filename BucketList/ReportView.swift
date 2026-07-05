@@ -81,7 +81,6 @@ extension AppStore {
             var reached: Set<Season> = []
             for t in tags {
                 if case .season(let s) = t { reached.insert(s) }
-                else if case .month(let m) = t { reached.insert(Season.of(month: m)) }
             }
             if reached.isEmpty {
                 reached.insert(Clock.season)

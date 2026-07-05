@@ -57,7 +57,6 @@ struct ItemForm: View {
         let lowConfidence: Bool
     }
 
-    @State private var monthsExpanded = false
     @State private var addingTag = false
     @State private var tagDraft = ""
     // Focus for the SwiftUI text fields. The keyboard toolbar's 完了 clears it,
@@ -300,58 +299,11 @@ struct ItemForm: View {
     // MARK: seasons
 
     private var seasonPicker: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            FlowLayout(spacing: 6) {
-                ForEach(Season.order, id: \.self) { s in
-                    seasonPill(.season(s))
-                }
-                seasonPill(.any, label: "いつでも", anyStyle: true)
-                Button {
-                    withAnimation { monthsExpanded.toggle() }
-                } label: {
-                    HStack(spacing: 4) {
-                        Text("月で指定")
-                            .font(Theme.Font.sans(13, weight: .semibold))
-                        Text("▾")
-                            .font(.system(size: 9))
-                            .rotationEffect(.degrees(monthsExpanded ? 180 : 0))
-                    }
-                    .foregroundColor(Theme.Color.ink2)
-                    .padding(.horizontal, 12).padding(.vertical, 8)
-                    .background(
-                        Capsule().fill(Theme.Color.paper1)
-                            .overlay(Capsule().stroke(Theme.Color.cardBorder, lineWidth: 1))
-                    )
-                }
-                .buttonStyle(.plain)
+        FlowLayout(spacing: 6) {
+            ForEach(Season.order, id: \.self) { s in
+                seasonPill(.season(s))
             }
-
-            if monthsExpanded {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 6), spacing: 6) {
-                    ForEach(1...12, id: \.self) { m in
-                        let tag = SeasonTag.month(m)
-                        let on = seasons.contains(tag)
-                        Button { toggleSeason(tag) } label: {
-                            Text("\(m)月")
-                                .font(Theme.Font.sans(12, weight: .semibold))
-                                .foregroundColor(on ? .white : Theme.Color.ink0)
-                                .padding(.vertical, 8)
-                                .frame(maxWidth: .infinity)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .fill(on ? Theme.Color.green700 : Theme.Color.paper2)
-                                )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(10)
-                .background(
-                    RoundedRectangle(cornerRadius: 12).fill(Theme.Color.paper0)
-                        .overlay(RoundedRectangle(cornerRadius: 12)
-                            .stroke(Theme.Color.hairline, lineWidth: 1))
-                )
-            }
+            seasonPill(.any, label: "いつでも", anyStyle: true)
         }
     }
 

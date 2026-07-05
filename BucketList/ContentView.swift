@@ -528,7 +528,7 @@ struct ScreenshotFormMock: View {
         return ItemForm.AIPreview(
             title: "ひがし茶屋街を散歩する",
             priority: .maybe,
-            seasons: [.season(.spring), .month(4)],
+            seasons: [.season(.spring)],
             tags: ["travel", "leisure"],
             lowConfidence: false)
     }
