@@ -8,20 +8,29 @@ enum CandidateGenerator {
 
     // From a raw string (paste field). Invalid/unsafe URLs resolve to a safe
     // "confirm this" candidate rather than failing.
-    static func make(rawURL: String, memo: String = "", existingTags: [TagDef]) async -> ItemCandidate {
+    //
+    // `sharedText` is any text the share sheet handed us alongside the URL (a
+    // post caption / tweet body / video title). For login-walled apps
+    // (Instagram/X/TikTok) a server-side read of the URL returns only the poster,
+    // so this text is often the ONLY place the real subject ("ABC Cafe") appears.
+    static func make(rawURL: String, memo: String = "", sharedText: String = "",
+                     existingTags: [TagDef]) async -> ItemCandidate {
         guard let url = URLSafety.normalized(rawURL) else {
             return ItemCandidate.fallback(url: nil)
         }
-        return await make(url: url, memo: memo, existingTags: existingTags)
+        return await make(url: url, memo: memo, sharedText: sharedText, existingTags: existingTags)
     }
 
-    static func make(url: URL, memo: String = "", existingTags: [TagDef]) async -> ItemCandidate {
+    static func make(url: URL, memo: String = "", sharedText: String = "",
+                     existingTags: [TagDef]) async -> ItemCandidate {
         // Warm the model while the network fetch runs, so the two costs overlap
         // instead of adding up.
         OnDeviceModel.prewarm()
         let metadata = await MetadataFetcher.fetch(url)
-        var candidate = await OnDeviceModel.generate(metadata: metadata, memo: memo, existingTags: existingTags)
-            ?? RuleBasedCandidate.make(metadata: metadata, memo: memo, allTags: existingTags)
+        var candidate = await OnDeviceModel.generate(metadata: metadata, memo: memo,
+                                                     sharedText: sharedText, existingTags: existingTags)
+            ?? RuleBasedCandidate.make(metadata: metadata, memo: memo,
+                                       sharedText: sharedText, allTags: existingTags)
         // Never hand back an over-long title (e.g. a page title that slipped through).
         candidate.title = String(candidate.title.prefix(ItemCandidate.titleMaxLength))
         return candidate

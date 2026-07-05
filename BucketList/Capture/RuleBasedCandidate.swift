@@ -2,78 +2,82 @@ import Foundation
 
 // Deterministic fallback used whenever the on-device model is unavailable or
 // fails. Reads the on-device metadata + user memo, picks a category by keyword,
-// and shapes a natural "やりたいこと" title. Always returns something usable.
+// and shapes a "やりたいこと" title. Always returns something usable.
 //
-// Policy: anything about a place / restaurant / event / leisure outing —
-// including Maps links, reservation sites and shared X/Instagram posts —
-// becomes "<具体的な名称>に行く". Only non-outing kinds (watch / buy / cook /
-// look-up) use a different verb.
+// Policy: the title is the *subject* as a noun phrase (体言止め) — never an
+// action. Whether the user wants to go to / watch / cook the thing is intent
+// that isn't in the shared content, so we don't guess a verb (mirrors the
+// on-device model). Category keywords still drive the tag + confidence, just not
+// the wording. The user adds a verb in the confirm sheet if they want one.
 enum RuleBasedCandidate {
 
-    static func make(metadata: LinkMetadata, memo: String, allTags: [TagDef]) -> ItemCandidate {
-        let name = bestName(metadata, memo: memo)
+    static func make(metadata: LinkMetadata, memo: String, sharedText: String = "", allTags: [TagDef]) -> ItemCandidate {
+        let name = bestName(metadata, memo: memo, sharedText: sharedText)
         let host = metadata.resolvedURL.host?.lowercased() ?? ""
-        // Signal text the rules scan. Memo first — a user note is the strongest
-        // hint, especially for X/Instagram posts whose body we can't fully read.
-        let signal = [memo, metadata.title, metadata.siteName, metadata.placeName,
+        // Signal text the rules scan. Memo + the share sheet's own text first —
+        // strongest hints, especially for X/Instagram posts whose body a server
+        // fetch can't reach.
+        let signal = [memo, sharedText, metadata.title, metadata.siteName, metadata.placeName,
                       metadata.description, metadata.resolvedURL.absoluteString]
             .compactMap { $0 }.joined(separator: " ")
 
-        // --- Non-outing kinds first (these never become "に行く"). ---
+        // --- Category detection drives only the tag + confidence; the title is
+        // always the subject noun phrase. Non-outing kinds are checked first so a
+        // recipe/video/product gets its category tag rather than a generic one. ---
 
         if metadata.sourceType == .youtube ||
             matches(signal, "映画|movie|cinema|trailer|予告|netflix|prime video|配信|作品|アニメ|ドラマ") {
-            return finish("\(name ?? "この作品")を見る", tagHints: ["leisure"],
+            return finish(name ?? "この作品", tagHints: ["leisure"],
                           confidence: name != nil ? 0.72 : 0.4, needsName: name == nil,
                           metadata: metadata, signal: signal, allTags: allTags)
         }
         if matches(signal, "レシピ|recipe|作り方|材料|献立") {
-            return finish("\(name ?? "この料理")を作る", tagHints: ["food"],
+            return finish(name ?? "この料理", tagHints: ["food"],
                           confidence: name != nil ? 0.66 : 0.4, needsName: name == nil,
                           metadata: metadata, signal: signal, allTags: allTags)
         }
         if isShopping(signal: signal, host: host) {
-            return finish("\(name ?? "これ")を試す", tagHints: ["shopping"],
+            return finish(name ?? "この商品", tagHints: ["shopping"],
                           confidence: name != nil ? 0.66 : 0.4, needsName: name == nil,
                           metadata: metadata, signal: signal, allTags: allTags)
         }
         if matches(signal, "解説|入門|方法|やり方|とは|tutorial|guide|how to|講座|まとめ|について調") {
-            return finish("\(name ?? "これ")について調べる", tagHints: ["c-learn", "学び"],
+            return finish(name ?? "この記事", tagHints: ["c-learn", "学び"],
                           confidence: name != nil ? 0.58 : 0.4, needsName: name == nil,
                           metadata: metadata, signal: signal, allTags: allTags)
         }
 
-        // --- Outing kinds → "<名称>に行く". ---
+        // --- Outing kinds → place/leisure tags. ---
 
         if isOuting(signal: signal, host: host, sourceType: metadata.sourceType) {
             let tags = outingTags(signal: signal, host: host)
             if let name {
-                return finish("\(name)に行く", tagHints: tags,
+                return finish(name, tagHints: tags,
                               confidence: outingConfidence(metadata, host: host),
                               needsName: false, metadata: metadata, signal: signal, allTags: allTags)
             }
-            // No clean name (e.g. an article headline) — a seasonal phenomenon
-            // reads far better than "この場所に行く".
+            // No clean name (e.g. an article headline) — the seasonal phenomenon
+            // itself ("紅葉" 等) reads far better than a generic place noun.
             if let (subject, _) = firstKeyword(signal, Self.seasonalPairs) {
-                return finish("\(subject)を見に行く", tagHints: ["leisure"], confidence: 0.55,
+                return finish(subject, tagHints: ["leisure"], confidence: 0.55,
                               needsName: true, metadata: metadata, signal: signal, allTags: allTags)
             }
             // Clearly an outing but no name — confirm, and nudge the user to add a
             // memo (esp. for login-walled X/Instagram posts).
-            return finish("\(outingNoun(signal: signal, host: host))に行く", tagHints: tags,
+            return finish(outingNoun(signal: signal, host: host), tagHints: tags,
                           confidence: 0.4, needsName: true,
                           metadata: metadata, signal: signal, allTags: allTags)
         }
 
         // Seasonal phenomenon outside an outing context (rare).
         if let (subject, _) = firstKeyword(signal, Self.seasonalPairs) {
-            return finish("\(subject)を見に行く", tagHints: ["leisure"], confidence: 0.55,
+            return finish(subject, tagHints: ["leisure"], confidence: 0.55,
                           needsName: true, metadata: metadata, signal: signal, allTags: allTags)
         }
 
-        // A bare name with no category → default to an outing, but ask to confirm.
+        // A bare name with no detectable category → use it as-is, but ask to confirm.
         if let name {
-            return finish("\(name)に行く", tagHints: [], confidence: 0.45,
+            return finish(name, tagHints: [], confidence: 0.45,
                           needsName: true, metadata: metadata, signal: signal, allTags: allTags)
         }
 
@@ -174,8 +178,17 @@ enum RuleBasedCandidate {
 
     // The first meaningful proper name across the signals, skipping generic
     // titles ("Home", "Google Maps", a bare brand).
-    private static func bestName(_ md: LinkMetadata, memo: String) -> String? {
-        let candidates = [md.placeName, primaryName(md.title), primaryName(md.siteName), primaryName(memo)]
+    private static func bestName(_ md: LinkMetadata, memo: String, sharedText: String) -> String? {
+        let isSocial = md.sourceType == .instagram || md.sourceType == .x || md.sourceType == .tiktok
+        // On a social post the fetched title/siteName is the poster or the app
+        // name — never the venue. Prefer the caption / user note; if neither has a
+        // clean name, return nil so we ask to confirm rather than saving the
+        // poster's name. (The on-device model extracts the venue from the caption
+        // when it can; this deterministic path stays conservative.)
+        let candidates: [String?] = isSocial
+            ? [md.placeName, primaryName(sharedText), primaryName(memo)]
+            : [md.placeName, primaryName(md.title), primaryName(md.siteName),
+               primaryName(sharedText), primaryName(memo)]
         for c in candidates where !GenericTitle.isGeneric(c) && !isOrgName(c) { return c }
         return nil
     }
@@ -199,8 +212,13 @@ enum RuleBasedCandidate {
             }
         }
         if let dash = best.range(of: " - ") { best = String(best[..<dash.lowerBound]) }
-        // Drop a "… on Instagram/X" suffix that social cards append.
-        for marker in [" on Instagram", " on X", "（@", " (@"] {
+        // "<poster> on Instagram/X" is the account holder, not a place to go —
+        // discard it entirely rather than keep the poster's name as the subject.
+        for marker in [" on Instagram", " on X"] {
+            if best.range(of: marker) != nil { return nil }
+        }
+        // Strip a trailing "(@handle)" but keep the display name before it.
+        for marker in ["（@", " (@"] {
             if let r = best.range(of: marker) { best = String(best[..<r.lowerBound]) }
         }
         let trimmed = best.trimmingCharacters(in: .whitespaces)

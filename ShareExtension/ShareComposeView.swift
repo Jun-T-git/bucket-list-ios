@@ -169,7 +169,11 @@ struct ShareComposeView: View {
         withAnimation(.easeInOut(duration: 0.2)) { isGenerating = true }
         genTask?.cancel()
         genTask = Task {
-            let c = await CandidateGenerator.make(rawURL: raw, memo: memo, existingTags: allTags)
+            // Pass the share sheet's own text (caption/tweet/title) as a signal —
+            // for login-walled apps it often holds the real subject the server
+            // fetch can't see. `initialTitle` is the untouched shared text.
+            let c = await CandidateGenerator.make(rawURL: raw, memo: memo,
+                                                  sharedText: initialTitle, existingTags: allTags)
             await MainActor.run {
                 // Only the result for the URL still in the field wins.
                 guard raw == urlInput.trimmingCharacters(in: .whitespaces) else { return }

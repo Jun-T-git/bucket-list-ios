@@ -16,11 +16,12 @@ enum OnDeviceModel {
     // hardware) so the user never waits a minute.
     static let timeout: TimeInterval = 8
 
-    static func generate(metadata: LinkMetadata, memo: String, existingTags: [TagDef]) async -> ItemCandidate? {
+    static func generate(metadata: LinkMetadata, memo: String, sharedText: String = "",
+                         existingTags: [TagDef]) async -> ItemCandidate? {
         #if canImport(FoundationModels)
         if #available(iOS 26.0, *) {
             return await withTimeout(seconds: timeout) {
-                await Self.run(metadata: metadata, memo: memo, existingTags: existingTags)
+                await Self.run(metadata: metadata, memo: memo, sharedText: sharedText, existingTags: existingTags)
             }
         }
         #endif
@@ -61,27 +62,32 @@ enum OnDeviceModel {
 @available(iOS 26.0, *)
 @Generable
 struct GeneratedCandidate {
-    @Guide(description: "短い行動表現のタイトル。場所/飲食店/イベント/レジャーは必ず『{固有名詞}に行く』。ページタイトルや投稿本文をそのままコピーせず、名称だけ抽出して変換する")
+    // The title is the *subject* as a noun phrase — never an action. Whether the
+    // user wants to watch / go to / cook the thing is intent that lives in their
+    // head, not in the shared content, so we don't guess a verb (a wrong verb is
+    // the most visible mistake). The user adds one in the confirm sheet if wanted.
+    @Guide(description: "対象の主題を表す名詞句を体言止めで（店名・施設名・作品名・商品名・イベント名・場所名など）。最大30字。『〜に行く』『〜を見る』等の動詞・行動表現は絶対に付けない。ページタイトルや投稿本文をそのままコピーせず、宣伝文句・ハッシュタグ・絵文字・『公式』『完全版』等の飾りを除いて主題だけを残す。特定できなければ空文字")
     var title: String
     @Guide(description: "渡された既存タグの日本語ラベルだけを0〜3個。該当が無ければ空。新しいタグは作らない")
     var tags: [String]
-    @Guide(description: "判断の確信度。0.0〜1.0")
+    @Guide(description: "確信度。主題をはっきり特定できたら0.8以上、推測が混じるなら0.4〜0.7、主題が不明なら0.3未満")
     var confidence: Double
-    @Guide(description: "情報が乏しく内容確認が必要ならtrue")
+    @Guide(description: "主題を特定できない、または情報が乏しく人間の確認が必要ならtrue")
     var needsUserConfirmation: Bool
 }
 
 @available(iOS 26.0, *)
 extension OnDeviceModel {
 
-    static func run(metadata: LinkMetadata, memo: String, existingTags: [TagDef]) async -> ItemCandidate? {
+    static func run(metadata: LinkMetadata, memo: String, sharedText: String, existingTags: [TagDef]) async -> ItemCandidate? {
         let model = SystemLanguageModel(useCase: .contentTagging)
         guard model.availability == .available else { return nil }
 
         let tagLabels = existingTags.map(\.ja)
         let session = LanguageModelSession(model: model, instructions: instructions(tagLabels: tagLabels))
-        let prompt = prompt(metadata: metadata, memo: memo)
-        let options = GenerationOptions(temperature: 0.3)
+        let prompt = prompt(metadata: metadata, memo: memo, sharedText: sharedText)
+        // Extraction/classification wants consistency over creativity — keep it low.
+        let options = GenerationOptions(temperature: 0.2)
 
         do {
             let response = try await session.respond(to: prompt, generating: GeneratedCandidate.self, options: options)
@@ -106,30 +112,53 @@ extension OnDeviceModel {
 
     private static func instructions(tagLabels: [String]) -> String {
         """
-        あなたは「やりたいことリスト」のタイトル生成器です。出力は必ず短い『行動表現』のタイトル1つ。
-        与えられたメタデータから「対象の具体的な名称」（店名・施設名・イベント名・場所名などの固有名詞）を抽出し、
-        場所・飲食店・イベント・レジャーに関するものは必ず「{名称}に行く」にします。
-        重要：ページタイトルや投稿本文を“そのままコピーしない”。名称だけ抜き出して行動表現に変換する。
+        あなたは「やりたいことリスト」の見出し生成器です。日本語で、対象の主題を表す短い名詞句を1つ作ります（体言止め）。
 
-        例:
-        - 入力「場所/店名: ABC Cafe」→「ABC Cafeに行く」
-        - 入力「投稿本文: 渋谷の隠れ家イタリアン Trattoria Rossi に行ってきた。最高」→ 名称=Trattoria Rossi →「Trattoria Rossiに行く」
-        - 入力「ページタイトル: 高尾山 紅葉ライトアップ2026」→ 名称=高尾山 →「高尾山に行く」
-        - 入力「サイト名: ABC Cafe / タイトル: ホーム」→「ABC Cafeに行く」
-        - 映画/動画は「{作品名}を見る」、商品は「{商品名}を試す」、レシピは「{料理名}を作る」、記事/学習は「{テーマ}について調べる」。
-        - 名称が特定できないときは『ホーム』『Google Maps』等の汎用語を使わず、その旨を reason に書き needsUserConfirmation=true。
+        最重要ルール:
+        - 「〜に行く」「〜を見る」「〜を作る」等の動詞・行動表現は絶対に付けない。
+          ユーザーがそれを見たいのか実際にやりたいのか等の"意図"はこちらでは判断せず、主題（何についてか）だけを残す。
+        - ページタイトルや投稿本文を“そのままコピーしない”。宣伝文句・ハッシュタグ・絵文字・「公式」「完全版」等の飾りを除き、主題の名詞句だけを抜き出す。
+        - ユーザーメモがあれば主題の最有力の手がかりとして最優先する。
+        - SNS（Instagram/X/TikTok）の投稿では、主題は本文・キャプション・共有本文で紹介されている店・場所・商品・作品・イベント。
+          「投稿者名」（アカウント名）は主題にしない——ユーザーは投稿者ではなく、そこで紹介された対象に行きたい/試したいと考えている。
+        - 主題を示す固有名詞がどこにも見つからないときは、投稿者名や汎用語で埋めず、needsUserConfirmation=true・confidenceを0.3未満にする。
+        - 桜/紅葉/花火/イルミ等の季節語や、料理名・作品名などの特徴語は主題の一部として残す（例:「高尾山の紅葉ライトアップ」）。
+        - 最大30字。
 
-        タグは次の既存タグの中からのみ0〜3個選びます。一覧にないタグは絶対に作りません: \(tagLabels.joined(separator: " / "))。
-        ユーザーメモがある場合は店名・場所名の手がかりとして強く参考にします。
+        例（左が入力、右が出力。出力に動詞が無いことに注意）:
+        - 場所/店名「ABC Cafe」→「ABC Cafe」
+        - 投稿本文「渋谷の隠れ家イタリアン Trattoria Rossi に行ってきた。最高」→「Trattoria Rossi」
+        - ページタイトル「高尾山 紅葉ライトアップ2026」→「高尾山の紅葉ライトアップ」
+        - YouTube「【完全版】新宿ラーメン食べ歩き」→「新宿ラーメン食べ歩き」
+        - Amazon「Anker 充電器 65W USB-C 急速…（長い商品名）」→「Anker 65W充電器」
+        - レシピ「基本の本格キーマカレーの作り方」→「キーマカレー」
+        - サイト名「ABC Cafe / タイトル: ホーム」→「ABC Cafe」
+        - 投稿者名「山田太郎」＋本文「渋谷のABC Cafeで最高のラテ☕ #カフェ巡り」→「ABC Cafe」（投稿者名は使わない）
+        - 主題が特定できないとき → 『ホーム』『Google Maps』『山田太郎』等の投稿者名・汎用語は使わず、needsUserConfirmation=true・confidenceを0.3未満にする。
+
+        タグは次の既存タグの中からのみ、内容に合うものだけ0〜3個。無ければ空。一覧にないタグは絶対に作りません: \(tagLabels.joined(separator: " / "))。
+        目安: 飲食店・レシピ→飲食 / 旅行・宿・観光→旅行 / 映画・イベント・アクティビティ→レジャー / 商品→お買い物。
         """
     }
 
-    private static func prompt(metadata: LinkMetadata, memo: String) -> String {
+    private static func prompt(metadata: LinkMetadata, memo: String, sharedText: String) -> String {
+        let isSocial = [.instagram, .x, .tiktok].contains(metadata.sourceType)
         var lines = ["URL種別: \(metadata.sourceType.rawValue)", "URL: \(metadata.bestURL.absoluteString)"]
         if let p = metadata.placeName, !p.isEmpty { lines.append("地図から抽出した場所/店名: \(p)") }
         if let s = metadata.siteName, !s.isEmpty { lines.append("サイト名: \(s)") }
-        if let t = metadata.title, !t.isEmpty { lines.append("ページタイトル: \(t)") }
+        if let t = metadata.title, !t.isEmpty {
+            // On Instagram/X/TikTok the fetched title is the poster (login wall
+            // hides the caption), so label it as such — otherwise the model turns
+            // "山田太郎" into the title instead of the venue in the body.
+            lines.append(isSocial ? "投稿者名（主題にしない）: \(t)" : "ページタイトル: \(t)")
+        }
         if let d = metadata.description, !d.isEmpty { lines.append("説明/投稿本文: \(d)") }
+        // Text the share sheet handed us — for login-walled apps this is often the
+        // only place the real subject appears. Skip it if it just repeats the title.
+        let trimmedShared = sharedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedShared.isEmpty, trimmedShared != metadata.title {
+            lines.append("共有アプリからの本文/キャプション: \(trimmedShared)")
+        }
         let trimmedMemo = memo.trimmingCharacters(in: .whitespacesAndNewlines)
         lines.append("ユーザーメモ: \(trimmedMemo.isEmpty ? "（なし）" : trimmedMemo)")
         return lines.joined(separator: "\n")

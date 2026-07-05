@@ -3,8 +3,8 @@ import LinkPresentation
 
 // MARK: - Source type
 
-// Where a shared/pasted URL came from. Drives both copy and the rule-based
-// fallback (e.g. a YouTube link biases toward "…を見る").
+// Where a shared/pasted URL came from. Drives copy and the rule-based fallback's
+// category/tag choice (e.g. a YouTube link → a leisure/video subject).
 enum SourceType: String, Sendable {
     case googleMaps, instagram, tiktok, x, youtube, web, unknown
 
@@ -111,7 +111,7 @@ struct LinkMetadata: Sendable {
 }
 
 // Titles that carry no real meaning ("Home", "Google Maps", a bare site name).
-// Used to reject junk before it becomes a "ホームに行く"-style title.
+// Used to reject junk before it becomes a "ホーム"-style meaningless title.
 enum GenericTitle {
     private static let blocked: Set<String> = [
         "google", "google maps", "google マップ", "グーグルマップ", "google search",
