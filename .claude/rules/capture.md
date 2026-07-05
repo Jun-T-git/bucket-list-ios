@@ -17,3 +17,5 @@ paths:
 - **上限**：`TagValidator` はタグ最大3・実在キーのみ・重複除去。タイトルは30字ハードキャップ。
 - **SSRF ガード**：`URLSafety`（http(s)のみ・localhost/内部IP排除）を通す。
 - **「完全オフライン」と謳わない**：メタ取得は対象URLへの通信が発生する。表現は「推論はオンデバイス」。
+- **ドキュメント同期**：取り込みの**段・データフロー・フォールバック順**を変えたら、
+  `docs/architecture/capture-pipeline.md` を実態に合わせて更新する（`/sync-docs` か doc-scribe）。

@@ -21,3 +21,5 @@ paths:
 - **3軸モデルを守る**：季節は `SeasonTag`（空=いつでも、旧"m4"は季節へ畳み込み）。月単位指定を復活させない
   （[ADR 0001](../../docs/decisions/0001-3軸モデル.md)）。タグは固定4＋カスタム最大10。
 - **AI は候補・ユーザーが主役**：自動分類 OFF（`Tweaks.autoClassify`）を尊重する。
+- **ドキュメント同期**：型/3軸モデル/永続化の**構造**を変えたら、`docs/architecture/data-model.md`
+  （必要なら `overview.md`）を実態に合わせて更新する（`/sync-docs` か doc-scribe）。ロジックだけの変更は不要。

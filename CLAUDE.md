@@ -49,6 +49,9 @@ iOS SwiftUI アプリ。**このファイルは毎セッション読み込まれ
    スキル `/verify-build` で一括。**Stop フックが完了前に自動でこれを強制する**（壊れたコードで終われない）。
    UI 変更なら `/visual-check` で撮って原則に照らす。
 4. **哲学レビュー**：`design-guardian` エージェントで差分を原則に照らす（`/code-review` はバグ観点＝別軸）。
+5. **ドキュメント同期**：構造・データモデル・取り込み・手順を変えたら、対応する**常設ドキュメント**を追随させる
+   （`/sync-docs` か `doc-scribe`。Stop フックが乖離を検知してリマインドする）。常設と一時の区別 →
+   [`docs/README.md`](docs/README.md#常設と一時ドキュメント)。**一時メモ・計画・作業ログは repo に置かず scratchpad へ。**
 
 ## ビルド/検証コマンド（詳細は build-and-verify.md）
 
@@ -74,6 +77,7 @@ xcodebuild -project BucketList.xcodeproj -scheme BucketListTests \
 - AI が意図（動詞）を捏造する／ユーザーが編集した値を上書きする。分類のためにテキストを外部送信する。
 - デコード失敗でストアを空に上書きする（[設計原則§9](docs/philosophy/02-設計原則.md)）。
 - **設計原則そのものを勝手に変える**：必要なら [ADR](docs/decisions/) 起票を提案し依頼者の判断を仰ぐ。
+- **一時ドキュメント（調査メモ/計画/作業ログ）を repo に残す**：scratchpad に置く。常設 doc を更新せずコードだけ変えて放置する。
 
 ## 会話・コード規約
 
