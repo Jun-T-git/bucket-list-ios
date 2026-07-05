@@ -41,7 +41,7 @@ struct AddEditSheet: View {
     @State private var genTask: Task<Void, Never>? = nil     // in-flight fetch
     @State private var lastQueriedURL = ""
 
-    enum URLState { case idle, invalidFormat, generating, ok, failed }
+    enum URLState { case idle, invalidFormat, generating, ok, failed, lowConfidence }
 
     enum PriorityChoice: Equatable {
         case auto
@@ -111,6 +111,7 @@ struct AddEditSheet: View {
         switch urlState {
         case .invalidFormat: return "URLの形式で入力してください"
         case .failed:        return "このリンクを読み取れませんでした。URLをご確認ください。"
+        case .lowConfidence: return "内容を自動で読み取れませんでした。タイトルを入力してください。"
         default:             return nil
         }
     }
@@ -266,12 +267,19 @@ struct AddEditSheet: View {
                 guard raw == urlInput.trimmingCharacters(in: .whitespaces) else { return }
                 withAnimation(.easeInOut(duration: 0.2)) {
                     isGenerating = false
-                    if c.readable {
+                    if c.readable && !c.shouldConfirm {
                         // A successful read consumes one free import (no-op for Pro).
                         Storage.consumeFreeCapture()
                         pendingCandidate = c
                         urlState = .ok
                         Haptics.success()
+                    } else if c.readable {
+                        // Read the link but couldn't confidently name it — don't
+                        // offer a placeholder preview to adopt; ask the user to fill
+                        // the title in. No free import is spent for a non-result.
+                        pendingCandidate = nil
+                        urlState = .lowConfidence
+                        Haptics.warning()
                     } else {
                         pendingCandidate = nil
                         urlState = .failed

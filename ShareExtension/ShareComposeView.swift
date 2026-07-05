@@ -42,7 +42,7 @@ struct ShareComposeView: View {
     @State private var saveError = false
 
     enum TouchedField: Hashable { case title, priority, seasons, tags }
-    enum URLState { case idle, invalidFormat, generating, ok, failed, blockedFree }
+    enum URLState { case idle, invalidFormat, generating, ok, failed, lowConfidence, blockedFree }
 
     private var canSave: Bool { !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
@@ -54,7 +54,8 @@ struct ShareComposeView: View {
         switch urlState {
         case .invalidFormat: return "URLの形式で入力してください"
         case .failed:        return "このリンクを読み取れませんでした。内容を手入力してください。"
-        case .ok:            return (candidate?.shouldConfirm == true) ? "情報が少なめです。内容をご確認ください。" : nil
+        case .ok:            return nil
+        case .lowConfidence: return "内容を自動で読み取れませんでした。タイトルを入力して保存してください。"
         case .blockedFree:   return "無料の自動取り込みは上限に達しました。アプリで Pro にすると無制限になります。内容は手入力でそのまま保存できます。"
         default:             return nil
         }
@@ -180,13 +181,20 @@ struct ShareComposeView: View {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     isGenerating = false
                     candidate = c
-                    if c.readable {
+                    if c.readable && !c.shouldConfirm {
                         // A successful read consumes one free import (no-op for Pro).
                         Storage.consumeFreeCapture()
                         applyAI(c)       // auto-adopt: fills only untouched fields
                         urlState = .ok
+                    } else if c.readable {
+                        // Read the link but couldn't confidently name it. Don't drop
+                        // a placeholder ("この商品" 等) into the title — clear the
+                        // provisional title (unless hand-edited) and ask the user to
+                        // enter it. No free import is spent for a non-result.
+                        if !touched.contains(.title) { title = "" }
+                        urlState = .lowConfidence
                     } else {
-                        // Couldn't read — keep the keyword draft, just warn.
+                        // Couldn't read at all — keep the keyword draft, just warn.
                         urlState = .failed
                     }
                 }
