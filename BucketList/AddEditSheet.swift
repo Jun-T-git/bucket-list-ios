@@ -84,7 +84,10 @@ struct AddEditSheet: View {
     private var aiTags: [String] { aiTagsCache }
 
     private func recomputeAIDraft() {
-        if title.trimmingCharacters(in: .whitespaces).isEmpty {
+        // Honour the 設定 → 自動分類 toggle: when off, the sheet stays on neutral
+        // defaults and never drafts priority/season/tags from the title. Mirrors
+        // the Share Extension's `useAuto` gate so both entry points behave alike.
+        if !store.tweaks.autoClassify || title.trimmingCharacters(in: .whitespaces).isEmpty {
             aiPrioCache = .maybe
             aiSeasonsCache = [.any]
             aiTagsCache = []
@@ -215,7 +218,9 @@ struct AddEditSheet: View {
     // MARK: URL → background AI reading
 
     private func handleUrlChanged(_ v: String) {
-        if !prewarmed, !v.trimmingCharacters(in: .whitespaces).isEmpty {
+        // 自動分類オフ時は URL の自動読み取り（AI補完）自体を行わないので、
+        // モデルのウォームアップも走らせない。URL は手入力のリンクとして保存できる。
+        if store.tweaks.autoClassify, !prewarmed, !v.trimmingCharacters(in: .whitespaces).isEmpty {
             prewarmed = true
             OnDeviceModel.prewarm()
         }
@@ -238,6 +243,13 @@ struct AddEditSheet: View {
         guard URLSafety.looksLikeWebURL(raw) else {
             genTask?.cancel()
             urlState = .invalidFormat; isGenerating = false; pendingCandidate = nil
+            return
+        }
+        // 自動分類オフ時は AI 補完を行わない。URL 形式の検証だけ通し、リンクは
+        // そのまま保存できる状態（idle）にして自動読み取りはスキップする。
+        guard store.tweaks.autoClassify else {
+            genTask?.cancel()
+            isGenerating = false; pendingCandidate = nil; urlState = .idle
             return
         }
         guard raw != lastQueriedURL else { return }   // already read this URL

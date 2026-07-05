@@ -120,8 +120,10 @@ struct ShareComposeView: View {
         // classifier) so the sheet is editable and saveable right away.
         applyManualDefaults()
         // With a URL, read it in the background and auto-adopt a successful result.
+        // 自動分類オフ時は AI 補完（URL自動読み取り）を行わない — 手で編集・保存できる
+        // 下書きだけを残す。ウォームアップも読み取りもスキップする。
         let raw = urlInput.trimmingCharacters(in: .whitespaces)
-        if !raw.isEmpty {
+        if useAuto, !raw.isEmpty {
             prewarmed = true
             OnDeviceModel.prewarm()
             onUrlSettled()
@@ -129,7 +131,7 @@ struct ShareComposeView: View {
     }
 
     private func handleUrlChanged(_ v: String) {
-        if !prewarmed, !v.trimmingCharacters(in: .whitespaces).isEmpty {
+        if useAuto, !prewarmed, !v.trimmingCharacters(in: .whitespaces).isEmpty {
             prewarmed = true
             OnDeviceModel.prewarm()
         }
@@ -151,6 +153,12 @@ struct ShareComposeView: View {
         guard URLSafety.looksLikeWebURL(raw) else {
             genTask?.cancel()
             urlState = .invalidFormat; isGenerating = false
+            return
+        }
+        // 自動分類オフ時は AI 補完を行わない。手入力の下書きのまま保存できる状態にする。
+        guard useAuto else {
+            genTask?.cancel()
+            isGenerating = false; urlState = .idle
             return
         }
         guard raw != lastQueriedURL else { return }

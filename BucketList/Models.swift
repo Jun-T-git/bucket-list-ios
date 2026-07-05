@@ -1601,7 +1601,7 @@ enum Classifier {
 
     static func tags(_ title: String) -> [String] {
         var out: [String] = []
-        if matches(title, "蕎麦|食|カニ|レストラン|カフェ|喫茶|居酒屋|バル|ビストロ|食堂|BBQ|ランチ|ディナー|ご飯|寿司|ラーメン|焼肉|グルメ|パン|スイーツ|cafe|café|coffee|restaurant|bar|bistro|bakery|lunch|dinner|ramen|sushi") { out.append("food") }
+        if matches(title, "蕎麦|食|カニ|レストラン|カフェ|喫茶|居酒屋|バル|ビストロ|食堂|BBQ|ランチ|ディナー|ご飯|寿司|鮨|ラーメン|焼肉|すき焼き|しゃぶしゃぶ|割烹|料亭|懐石|会席|天ぷら|天麩羅|うなぎ|鰻|とんかつ|焼き鳥|焼鳥|串カツ|お好み焼き|たこ焼き|もんじゃ|鉄板焼|ステーキ|丼|海鮮|イタリアン|フレンチ|ピザ|パスタ|グルメ|パン|スイーツ|cafe|café|coffee|restaurant|bar|bistro|bakery|lunch|dinner|ramen|sushi") { out.append("food") }
         if matches(title, "旅|海外|ツアー|ドライブ|国|アメリカ|アイスランド|京都|沖縄|オーロラ|温泉|富士|宿|ホテル|旅館|観光|絶景|hotel|travel|trip") { out.append("travel") }
         if matches(title, "映画|花見|花火|紅葉|海水浴|銭湯|ピクニック|キャンプ|釣り|ライブ|フェス|散歩|公園|美術館|博物館|水族館|動物園|イベント") { out.append("leisure") }
         if matches(title, "買|購入|通販|ショッピング|服|腕時計|スニーカー|家具|カメラ|コスメ|ガジェット|家電|amazon|楽天") { out.append("shopping") }

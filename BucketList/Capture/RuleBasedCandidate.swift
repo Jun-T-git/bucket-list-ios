@@ -139,7 +139,8 @@ enum RuleBasedCandidate {
 
     // Dining signal, shared by the food-tag branch and the shopping exclusion.
     private static let diningKeywords =
-        "居酒屋|レストラン|カフェ|喫茶|焼肉|寿司|ラーメン|そば|蕎麦|うどん|バー|ビストロ|食堂|定食|グルメ|ダイニング|" +
+        "居酒屋|レストラン|カフェ|喫茶|焼肉|寿司|鮨|ラーメン|そば|蕎麦|うどん|バー|ビストロ|食堂|定食|グルメ|ダイニング|" +
+        "すき焼き|しゃぶしゃぶ|割烹|料亭|懐石|会席|天ぷら|天麩羅|うなぎ|鰻|とんかつ|焼き鳥|焼鳥|串カツ|お好み焼き|たこ焼き|もんじゃ|鉄板焼|ステーキ|丼|海鮮|イタリアン|フレンチ|" +
         "restaurant|cafe|café|coffee|bar|dining|bistro|eatery|ランチ|ディナー|ブランチ|ベーカリー|bakery|パン屋"
 
     // MARK: - tag / confidence / generic-noun helpers
@@ -153,8 +154,23 @@ enum RuleBasedCandidate {
             ["jalan", "rurubu", "booking", "jtb", "tripadvisor"].contains(where: { host.contains($0) }) {
             return ["travel"]
         }
-        return ["leisure"]   // events, parks, general outings
+        if matches(signal, leisureKeywords) ||
+            ["peatix", "eventbrite", "connpass", "eplus", "pia.jp", "t.pia", "asoview", "walkerplus"].contains(where: { host.contains($0) }) {
+            return ["leisure"]   // events, parks, activities
+        }
+        // Detected as an outing (often only via "店" or a social post) but no clear
+        // category. Better to leave it untagged than to guess "leisure" — a mislabel
+        // (e.g. a restaurant read as レジャー) is worse than no tag at all.
+        return []
     }
+
+    // Event / activity / general-leisure vocabulary. Mirrors the leisure portion of
+    // outingKeywords minus the terms already claimed by the food/travel branches.
+    private static let leisureKeywords =
+        "映画|movie|cinema|イベント|フェス|ライブ|コンサート|展示|個展|展覧会|美術館|博物館|祭|まつり|" +
+        "マルシェ|マーケット|花火大会|festival|concert|live|exhibition|event|" +
+        "銭湯|サウナ|公園|水族館|動物園|遊園地|テーマパーク|キャンプ|ビーチ|海水浴|ハイキング|登山|" +
+        "park|zoo|aquarium|leisure|ピクニック|釣り"
 
     private static func outingConfidence(_ md: LinkMetadata, host: String) -> Double {
         if md.sourceType == .googleMaps { return 0.82 }
@@ -213,17 +229,19 @@ enum RuleBasedCandidate {
                        options: [.regularExpression, .caseInsensitive]) != nil
     }
 
-    // Strip "Page Title | Site Name" style suffixes down to the first segment.
+    // Reduce "Page Title | Site Name" style titles to the venue/spot/event name.
+    // Normally the name is the first segment and the rest is the site name, but
+    // when the leading segment is a page-section label ("店舗概要", "アクセス",
+    // "メニュー"…) the real name is the *other* segment — skip section labels and
+    // pick the first segment that reads as a proper name.
     private static func primaryName(_ raw: String?) -> String? {
         guard let raw = raw?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else { return nil }
-        let separators: [Character] = ["|", "｜", "–", "—", "－", "・", "»", "·"]
-        var best = raw
-        for sep in separators {
-            if let chunk = raw.split(separator: sep).first?.trimmingCharacters(in: .whitespaces),
-               !chunk.isEmpty, chunk.count < best.count {
-                best = chunk
-            }
-        }
+        let separators = CharacterSet(charactersIn: "|｜–—－・»·")
+        let segments = raw.components(separatedBy: separators)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        var best = segments.first(where: { !isSectionLabel($0) && !GenericTitle.isGeneric($0) })
+            ?? segments.first ?? raw
         if let dash = best.range(of: " - ") { best = String(best[..<dash.lowerBound]) }
         // "<poster> on Instagram/X" is the account holder, not a place to go —
         // discard it entirely rather than keep the poster's name as the subject.
@@ -241,6 +259,26 @@ enum RuleBasedCandidate {
         if trimmed.rangeOfCharacter(from: CharacterSet(charactersIn: "！!？?。、…")) != nil { return nil }
         if trimmed.count > 24 { return nil }
         return trimmed
+    }
+
+    // Page-section / navigation headings that appear as a title segment but name a
+    // *part of the site*, not the place itself. A title like "店舗概要 | 今半 本店"
+    // should become "今半 本店", not "店舗概要". (Generic ones like ホーム/トップ/
+    // メニュー are already handled by GenericTitle.)
+    private static let sectionLabels: Set<String> = [
+        "店舗概要", "概要", "会社概要", "企業概要", "店舗情報", "施設概要", "施設情報",
+        "アクセス", "交通アクセス", "地図", "アクセスマップ",
+        "お品書き", "コース", "コース料理", "プラン", "料金", "料金表", "価格", "ご利用案内",
+        "営業時間", "営業案内", "ご予約", "予約", "ネット予約", "空席確認",
+        "お問い合わせ", "お問合せ", "問い合わせ", "コンタクト",
+        "お知らせ", "ニュース", "新着情報", "よくある質問", "faq", "q&a",
+        "ギャラリー", "フォトギャラリー", "写真", "求人", "採用情報", "採用",
+        "スタッフ紹介", "サイトマップ", "プライバシーポリシー", "特定商取引法",
+        "about", "about us", "access", "reservation", "reservations",
+        "contact", "contact us", "news", "gallery", "faqs", "sitemap",
+    ]
+    private static func isSectionLabel(_ s: String) -> Bool {
+        sectionLabels.contains(s.trimmingCharacters(in: .whitespaces).lowercased())
     }
 
     private static let seasonalPairs: [(needle: String, subject: String)] = [
