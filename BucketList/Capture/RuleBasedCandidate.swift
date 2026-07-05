@@ -123,16 +123,29 @@ enum RuleBasedCandidate {
         outingDomains.contains { host.contains($0) }
     }
 
+    // Physical product / EC only. A dining or outing place is never shopping,
+    // even when its name or URL contains "店 / shop / store" — check dining first.
     private static func isShopping(signal: String, host: String) -> Bool {
-        let shopDomains = ["amazon.", "rakuten.co.jp/item", "mercari", "zozo", "shop.", "store."]
+        if matches(signal, diningKeywords) { return false }
+        let shopDomains = ["amazon.", "rakuten.co.jp/item", "mercari", "zozo"]
         if shopDomains.contains(where: { host.contains($0) }) { return true }
-        return matches(signal, "商品|購入|通販|価格|お取り寄せ|buy|shop|product|スニーカー|時計|ガジェット|コスメ|家電")
+        // A "shop."/"store." subdomain — but not any host that merely contains
+        // those letters (that misfired on café/restaurant sites).
+        if host.hasPrefix("shop.") || host.hasPrefix("store.") { return true }
+        // Japanese product terms are specific; avoid bare English "shop/buy/product"
+        // and "価格", which also match ordinary URLs, paths and restaurant menus.
+        return matches(signal, "商品|購入|通販|お取り寄せ|カート|在庫|送料無料|コスメ|ガジェット|家電|スニーカー|腕時計")
     }
+
+    // Dining signal, shared by the food-tag branch and the shopping exclusion.
+    private static let diningKeywords =
+        "居酒屋|レストラン|カフェ|喫茶|焼肉|寿司|ラーメン|そば|蕎麦|うどん|バー|ビストロ|食堂|定食|グルメ|ダイニング|" +
+        "restaurant|cafe|café|coffee|bar|dining|bistro|eatery|ランチ|ディナー|ブランチ|ベーカリー|bakery|パン屋"
 
     // MARK: - tag / confidence / generic-noun helpers
 
     private static func outingTags(signal: String, host: String) -> [String] {
-        if matches(signal, "居酒屋|レストラン|カフェ|喫茶|焼肉|寿司|ラーメン|そば|蕎麦|うどん|バー|ビストロ|食堂|定食|グルメ|restaurant|cafe|café|coffee|bar|dining|ランチ|ディナー") ||
+        if matches(signal, diningKeywords) ||
             ["tabelog", "hotpepper", "gnavi", "retty", "ikyu", "favy"].contains(where: { host.contains($0) }) {
             return ["food"]
         }

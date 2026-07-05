@@ -56,6 +56,30 @@ enum OnDeviceModel {
     }
 }
 
+// Maps the model's season words (春/夏/秋/冬 or いつでも/その他) to SeasonTags,
+// de-duped. Anything not a recognised season is ignored; an empty result means
+// "いつでも".
+enum SeasonParse {
+    static func from(_ raw: [String]) -> [SeasonTag] {
+        var seen = Set<Season>()
+        var out: [SeasonTag] = []
+        for token in raw {
+            guard let s = season(from: token.trimmingCharacters(in: .whitespacesAndNewlines)) else { continue }
+            if seen.insert(s).inserted { out.append(.season(s)) }
+        }
+        return out.isEmpty ? [.any] : out
+    }
+    private static func season(from ja: String) -> Season? {
+        switch ja.lowercased() {
+        case "春", "spring":            return .spring
+        case "夏", "summer":            return .summer
+        case "秋", "fall", "autumn":    return .fall
+        case "冬", "winter":            return .winter
+        default:                        return nil   // 「いつでも」等 → 特定季節なし
+        }
+    }
+}
+
 #if canImport(FoundationModels)
 
 // Structured output the model is constrained to produce.
@@ -70,6 +94,8 @@ struct GeneratedCandidate {
     var title: String
     @Guide(description: "渡された既存タグの日本語ラベルだけを0〜3個。該当が無ければ空。新しいタグは作らない")
     var tags: [String]
+    @Guide(description: "この「やりたいこと」に向いた季節。春・夏・秋・冬 のうち当てはまるものだけ（複数可）。特定の季節に紐づかない・通年なら「いつでも」だけ。")
+    var seasons: [String]
     @Guide(description: "確信度。主題をはっきり特定できたら0.8以上、推測が混じるなら0.4〜0.7、主題が不明なら0.3未満")
     var confidence: Double
     @Guide(description: "主題を特定できない、または情報が乏しく人間の確認が必要ならtrue")
@@ -83,8 +109,7 @@ extension OnDeviceModel {
         let model = SystemLanguageModel(useCase: .contentTagging)
         guard model.availability == .available else { return nil }
 
-        let tagLabels = existingTags.map(\.ja)
-        let session = LanguageModelSession(model: model, instructions: instructions(tagLabels: tagLabels))
+        let session = LanguageModelSession(model: model, instructions: instructions(tags: existingTags))
         let prompt = prompt(metadata: metadata, memo: memo, sharedText: sharedText)
         // Extraction/classification wants consistency over creativity — keep it low.
         let options = GenerationOptions(temperature: 0.2)
@@ -96,8 +121,7 @@ extension OnDeviceModel {
             guard !title.isEmpty else { return nil }
 
             let tags = TagValidator.validate(g.tags, against: existingTags)
-            var seasons = Classifier.seasons([title, metadata.title ?? "", memo].joined(separator: " "))
-            if seasons.isEmpty { seasons = [.any] }
+            let seasons = SeasonParse.from(g.seasons)
             let priority = Classifier.priority([title, memo].joined(separator: " "))
             return ItemCandidate(
                 title: title, tags: tags, seasons: seasons, priority: priority,
@@ -110,7 +134,18 @@ extension OnDeviceModel {
         }
     }
 
-    private static func instructions(tagLabels: [String]) -> String {
+    private static func instructions(tags: [TagDef]) -> String {
+        // Each tag carries its own description (built-in defaults + user-set), so
+        // the model classifies by meaning. This is the single source of truth for
+        // tag guidance — no hard-coded category rules here.
+        let tagSection = tags.map { t -> String in
+            let d = t.desc?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return (d?.isEmpty == false) ? "- \(t.ja): \(d!)" : "- \(t.ja)"
+        }.joined(separator: "\n")
+        return instructionsBody(tagSection: tagSection)
+    }
+
+    private static func instructionsBody(tagSection: String) -> String {
         """
         あなたは「やりたいことリスト」の見出し生成器です。日本語で、対象の主題を表す短い名詞句を1つ作ります（体言止め）。
 
@@ -136,8 +171,12 @@ extension OnDeviceModel {
         - 投稿者名「山田太郎」＋本文「渋谷のABC Cafeで最高のラテ☕ #カフェ巡り」→「ABC Cafe」（投稿者名は使わない）
         - 主題が特定できないとき → 『ホーム』『Google Maps』『山田太郎』等の投稿者名・汎用語は使わず、needsUserConfirmation=true・confidenceを0.3未満にする。
 
-        タグは次の既存タグの中からのみ、内容に合うものだけ0〜3個。無ければ空。一覧にないタグは絶対に作りません: \(tagLabels.joined(separator: " / "))。
-        目安: 飲食店・レシピ→飲食 / 旅行・宿・観光→旅行 / 映画・イベント・アクティビティ→レジャー / 商品→お買い物。
+        季節(seasons)は、その「やりたいこと」に向いた季節を 春/夏/秋/冬 から選ぶ（複数可）。特定の季節に紐づかない・通年なら「いつでも」だけ。
+        目安: 桜・花見・入学=春 / 海・花火・BBQ・プール=夏 / 紅葉・お月見=秋 / 雪・スキー・イルミネーション・カニ・オーロラ=冬。飲食店やカフェなど通年楽しめるものは「いつでも」。
+
+        タグは次の一覧から、内容に最も合うものだけ0〜3個。無ければ空。一覧にないタグは絶対に作りません。
+        各タグの説明（例を含む）を根拠に選ぶこと。実際に足を運ぶ「行く場所・お店」を"お買い物"にしない:
+        \(tagSection)
         """
     }
 

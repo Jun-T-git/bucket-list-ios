@@ -337,6 +337,7 @@ struct CustomTagEditRow: View {
     @EnvironmentObject var store: AppStore
     @State private var editing = false
     @State private var draft = ""
+    @State private var descDraft = ""
     @State private var showDeleteConfirm = false
 
     // How many items currently carry this tag — surfaced in the confirmation so
@@ -346,51 +347,9 @@ struct CustomTagEditRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 8) {
-            Text("#")
-                .font(Theme.Font.mono(13, weight: .medium))
-                .foregroundColor(Theme.Color.green700.opacity(0.6))
-            if editing {
-                TextField("名前", text: $draft, onCommit: commit)
-                    .font(Theme.Font.sans(13, weight: .semibold))
-            } else {
-                Text(tag.ja)
-                    .font(Theme.Font.sans(13, weight: .semibold))
-                    .foregroundColor(Theme.Color.green700)
-                Spacer(minLength: 12)
-                Button { draft = tag.ja; editing = true } label: {
-                    Text("編集")
-                        .font(Theme.Font.sans(12, weight: .semibold))
-                        .foregroundColor(Theme.Color.ink2)
-                        .frame(minWidth: 44, minHeight: 44)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("「\(tag.ja)」を編集")
-                // Generous gap so the destructive button isn't a mis-tap away.
-                Spacer().frame(width: 8)
-                Button { showDeleteConfirm = true } label: {
-                    Text("削除")
-                        .font(Theme.Font.sans(12, weight: .semibold))
-                        .foregroundColor(Theme.Color.peach700)
-                        .frame(minWidth: 44, minHeight: 44)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("「\(tag.ja)」を削除")
-            }
-            if editing {
-                Spacer(minLength: 8)
-                Button("OK", action: commit)
-                    .font(Theme.Font.sans(13, weight: .semibold))
-                    .foregroundColor(Theme.Color.green700)
-            }
+        Group {
+            if editing { editingView } else { displayRow }
         }
-        .padding(.horizontal, 12).padding(.vertical, 8)
-        .background(
-            Capsule().fill(Theme.Color.green50)
-                .overlay(Capsule().stroke(Theme.Color.green700.opacity(0.20), lineWidth: 1))
-        )
         // Deleting a tag strips it from every item that uses it — confirm first.
         .confirmationDialog("「\(tag.ja)」を削除しますか？",
                             isPresented: $showDeleteConfirm, titleVisibility: .visible) {
@@ -406,8 +365,97 @@ struct CustomTagEditRow: View {
         }
     }
 
+    private var displayRow: some View {
+        HStack(spacing: 8) {
+            Text("#")
+                .font(Theme.Font.mono(13, weight: .medium))
+                .foregroundColor(Theme.Color.green700.opacity(0.6))
+            Text(tag.ja)
+                .font(Theme.Font.sans(13, weight: .semibold))
+                .foregroundColor(Theme.Color.green700)
+            // A subtle mark so the user can tell a tag already has an AI description.
+            if tag.desc?.isEmpty == false {
+                Image(systemName: "text.alignleft")
+                    .font(.system(size: 10))
+                    .foregroundColor(Theme.Color.green700.opacity(0.5))
+                    .accessibilityLabel("説明あり")
+            }
+            Spacer(minLength: 12)
+            Button { beginEditing() } label: {
+                Text("編集")
+                    .font(Theme.Font.sans(12, weight: .semibold))
+                    .foregroundColor(Theme.Color.ink2)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("「\(tag.ja)」を編集")
+            // Generous gap so the destructive button isn't a mis-tap away.
+            Spacer().frame(width: 8)
+            Button { showDeleteConfirm = true } label: {
+                Text("削除")
+                    .font(Theme.Font.sans(12, weight: .semibold))
+                    .foregroundColor(Theme.Color.peach700)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("「\(tag.ja)」を削除")
+        }
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .background(
+            Capsule().fill(Theme.Color.green50)
+                .overlay(Capsule().stroke(Theme.Color.green700.opacity(0.20), lineWidth: 1))
+        )
+    }
+
+    private var editingView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Text("#")
+                    .font(Theme.Font.mono(13, weight: .medium))
+                    .foregroundColor(Theme.Color.green500)
+                TextField("名前", text: $draft)
+                    .font(Theme.Font.sans(13, weight: .semibold))
+            }
+            TextField("AIがこのタグを選ぶ判断に使う説明（任意）", text: $descDraft, axis: .vertical)
+                .font(Theme.Font.sans(12.5))
+                .lineLimit(2...5)
+                .padding(8)
+                .background(
+                    RoundedRectangle(cornerRadius: 8).fill(Theme.Color.paper0)
+                        .overlay(RoundedRectangle(cornerRadius: 8)
+                            .stroke(Theme.Color.cardBorder, lineWidth: 1))
+                )
+            Text("例やニュアンスを書くとAIの自動分類が当たりやすくなります。空欄でもOK。")
+                .font(Theme.Font.sans(11))
+                .foregroundColor(Theme.Color.ink3)
+            HStack(spacing: 12) {
+                Spacer()
+                Button("キャンセル") { editing = false }
+                    .font(Theme.Font.sans(13))
+                    .foregroundColor(Theme.Color.ink2)
+                Button("OK", action: commit)
+                    .font(Theme.Font.sans(13, weight: .semibold))
+                    .foregroundColor(Theme.Color.green700)
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.Color.green50)
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Theme.Color.green700.opacity(0.20), lineWidth: 1))
+        )
+    }
+
+    private func beginEditing() {
+        draft = tag.ja
+        descDraft = tag.desc ?? ""
+        editing = true
+    }
+
     private func commit() {
-        store.renameCustomTag(key: tag.key, to: draft)
+        store.updateCustomTag(key: tag.key, label: draft, desc: descDraft)
         editing = false
     }
 }

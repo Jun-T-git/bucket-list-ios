@@ -160,17 +160,30 @@ struct TagDef: Identifiable, Codable, Equatable, Hashable {
     let key: String
     var ja: String
     let builtin: Bool
+    // Optional natural-language description with examples. Fed to the on-device
+    // model so it classifies by meaning, not just the label. Built-ins ship with
+    // a default; custom tags can set their own (see the tag editor).
+    var desc: String? = nil
     var id: String { key }
 }
 
 enum Tags {
     static let defaults: [TagDef] = [
-        TagDef(key: "food",     ja: "飲食",     builtin: true),
-        TagDef(key: "travel",   ja: "旅行",     builtin: true),
-        TagDef(key: "leisure",  ja: "レジャー", builtin: true),
-        TagDef(key: "shopping", ja: "お買い物", builtin: true),
+        TagDef(key: "food",     ja: "飲食",     builtin: true,
+               desc: "飲食店・カフェ・喫茶・レストラン・バー・居酒屋・料理・グルメ・レシピなど。「カニを食べたい」「ABC Cafeに行きたい」「スターバックス東京駅前店に行きたい」など。店名に「店」が付いても飲食店なら飲食。"),
+        TagDef(key: "travel",   ja: "旅行",     builtin: true,
+               desc: "旅行・宿・ホテル・旅館・観光地・温泉・名所など。「沖縄に行きたい」「星のや京都に泊まりたい」「四万温泉に行きたい」など。"),
+        TagDef(key: "leisure",  ja: "レジャー", builtin: true,
+               desc: "映画・動画・イベント・ライブ・アクティビティ・公園・美術館・自然・体験など。「あの映画を見たい」「チームラボに行きたい」「フジロックに行きたい」など。"),
+        TagDef(key: "shopping", ja: "お買い物", builtin: true,
+               desc: "ネット通販や店で買う「モノ・商品」。「あのスニーカーを買いたい」「新しいカメラが欲しい」「Amazonのあれを試したい」など。飲食店・カフェなど“行く場所”は含めない。"),
     ]
     static let maxCustom = 10
+
+    // The default description for a built-in tag key (used to seed the tag editor).
+    static func defaultDesc(forKey key: String) -> String? {
+        defaults.first { $0.key == key }?.desc
+    }
 }
 
 // How a tag applies across a set of selected items (bulk tag editing).
@@ -983,6 +996,16 @@ final class AppStore: ObservableObject {
         guard !trimmed.isEmpty else { return }
         guard let idx = customTags.firstIndex(where: { $0.key == key }) else { return }
         customTags[idx].ja = trimmed
+    }
+
+    // Update a custom tag's label and its optional AI description in one edit.
+    // An empty description is stored as nil (no line is sent to the model).
+    func updateCustomTag(key: String, label: String, desc: String?) {
+        guard let idx = customTags.firstIndex(where: { $0.key == key }) else { return }
+        let trimmedLabel = label.trimmingCharacters(in: .whitespaces)
+        if !trimmedLabel.isEmpty { customTags[idx].ja = trimmedLabel }
+        let d = desc?.trimmingCharacters(in: .whitespacesAndNewlines)
+        customTags[idx].desc = (d?.isEmpty == false) ? d : nil
     }
 
     func removeCustomTag(key: String) {
