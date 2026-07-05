@@ -2,7 +2,8 @@
 
 SwiftUI implementation of the v2 prototype from `バケットリスト v2.html`,
 evolved past the prototype to make the core experience real
-(see `docs/01-コアコンセプト.md`).
+(see `docs/philosophy/01-コアコンセプト.md`, and `CLAUDE.md` for the
+autonomous-development guide).
 
 ## Quick start
 
@@ -135,7 +136,7 @@ ShareExtension/         — 共有拡張ターゲット (コア体験① 回収)
 # typecheck against the iOS 17 SDK
 SDK=$(xcrun --sdk iphoneos --show-sdk-path)
 xcrun --sdk iphoneos swiftc -typecheck -sdk "$SDK" \
-    -target arm64-apple-ios17.0 BucketList/*.swift
+    -target arm64-apple-ios17.0 $(find BucketList -name '*.swift')
 
 # or a full simulator build
 xcodebuild -project BucketList.xcodeproj -scheme BucketList \

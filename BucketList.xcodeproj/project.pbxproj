@@ -45,6 +45,8 @@
 		B0F40003000000000000A004 /* SelectAllTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0F40001000000000000A004 /* SelectAllTextField.swift */; };
 		B0F40011000000000000A004 /* ItemForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0F40010000000000000A004 /* ItemForm.swift */; };
 		B0F40012000000000000A004 /* ItemForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0F40010000000000000A004 /* ItemForm.swift */; };
+		B0F6000E000000000000A005 /* CoreModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0F6000C000000000000A005 /* CoreModelTests.swift */; };
+		B0F6000F000000000000A005 /* CaptureLogicTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0F6000D000000000000A005 /* CaptureLogicTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -54,6 +56,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = B0E60001000000000000A002;
 			remoteInfo = ShareExtension;
+		};
+		B0F60009000000000000A005 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B00A0001000000000000A001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B0060001000000000000A001;
+			remoteInfo = BucketList;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -105,6 +114,9 @@
 		B0F20005000000000000A003 /* RuleBasedCandidate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuleBasedCandidate.swift; sourceTree = "<group>"; };
 		B0F40001000000000000A004 /* SelectAllTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectAllTextField.swift; sourceTree = "<group>"; };
 		B0F40010000000000000A004 /* ItemForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemForm.swift; sourceTree = "<group>"; };
+		B0F6000A000000000000A005 /* BucketListTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BucketListTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B0F6000C000000000000A005 /* CoreModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreModelTests.swift; sourceTree = "<group>"; };
+		B0F6000D000000000000A005 /* CaptureLogicTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureLogicTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -122,6 +134,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B0F60006000000000000A005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -130,6 +149,7 @@
 			children = (
 				B0050002000000000000A001 /* BucketList */,
 				B0E50001000000000000A002 /* ShareExtension */,
+				B0F6000B000000000000A005 /* BucketListTests */,
 				B0050003000000000000A001 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -167,6 +187,7 @@
 			children = (
 				B0030001000000000000A001 /* Wishes.app */,
 				B0E20005000000000000A002 /* ShareExtension.appex */,
+				B0F6000A000000000000A005 /* BucketListTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -212,6 +233,15 @@
 			path = Capture;
 			sourceTree = "<group>";
 		};
+		B0F6000B000000000000A005 /* BucketListTests */ = {
+			isa = PBXGroup;
+			children = (
+				B0F6000C000000000000A005 /* CoreModelTests.swift */,
+				B0F6000D000000000000A005 /* CaptureLogicTests.swift */,
+			);
+			path = BucketListTests;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -251,6 +281,24 @@
 			productReference = B0E20005000000000000A002 /* ShareExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		B0F60001000000000000A005 /* BucketListTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B0F60002000000000000A005 /* Build configuration list for PBXNativeTarget "BucketListTests" */;
+			buildPhases = (
+				B0F60005000000000000A005 /* Sources */,
+				B0F60006000000000000A005 /* Frameworks */,
+				B0F60007000000000000A005 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B0F60008000000000000A005 /* PBXTargetDependency */,
+			);
+			name = BucketListTests;
+			productName = BucketListTests;
+			productReference = B0F6000A000000000000A005 /* BucketListTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -266,6 +314,10 @@
 					};
 					B0E60001000000000000A002 = {
 						CreatedOnToolsVersion = 15.0;
+					};
+					B0F60001000000000000A005 = {
+						CreatedOnToolsVersion = 15.0;
+						TestTargetID = B0060001000000000000A001;
 					};
 				};
 			};
@@ -285,6 +337,7 @@
 			targets = (
 				B0060001000000000000A001 /* BucketList */,
 				B0E60001000000000000A002 /* ShareExtension */,
+				B0F60001000000000000A005 /* BucketListTests */,
 			);
 		};
 /* End PBXProject section */
@@ -305,6 +358,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				B0E10006000000000000A002 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B0F60007000000000000A005 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -358,6 +418,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B0F60005000000000000A005 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B0F6000E000000000000A005 /* CoreModelTests.swift in Sources */,
+				B0F6000F000000000000A005 /* CaptureLogicTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -365,6 +434,11 @@
 			isa = PBXTargetDependency;
 			target = B0E60001000000000000A002 /* ShareExtension */;
 			targetProxy = B0EA0001000000000000A002 /* PBXContainerItemProxy */;
+		};
+		B0F60008000000000000A005 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B0060001000000000000A001 /* BucketList */;
+			targetProxy = B0F60009000000000000A005 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -622,6 +696,44 @@
 			};
 			name = Release;
 		};
+		B0F60003000000000000A005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = JD7L34U2WS;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = teratech.BucketListTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Wishes.app/Wishes";
+			};
+			name = Debug;
+		};
+		B0F60004000000000000A005 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = JD7L34U2WS;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = teratech.BucketListTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Wishes.app/Wishes";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -648,6 +760,15 @@
 			buildConfigurations = (
 				B0EC0001000000000000A002 /* Debug */,
 				B0EC0002000000000000A002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B0F60002000000000000A005 /* Build configuration list for PBXNativeTarget "BucketListTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B0F60003000000000000A005 /* Debug */,
+				B0F60004000000000000A005 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -8,5 +8,12 @@ DerivedData/
 # macOS
 .DS_Store
 
-# Claude Code local config (local paths / permissions)
-.claude/
+# Claude Code — commit the shared autonomous-dev harness, ignore personal/local config.
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+!.claude/rules/
+!.claude/skills/
+!.claude/agents/
+# Personal/machine-specific (paths, extra permissions) stays local:
+.claude/settings.local.json
