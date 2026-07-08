@@ -86,8 +86,23 @@ enum Theme {
             default:    return .title1
             }
         }
+        // There are only seven text styles we map to, and UIFontMetrics is
+        // stateless for our use — so cache one instance per style rather than
+        // allocating a fresh UIFontMetrics on every Text (a full screen builds
+        // hundreds). scaledValue() still runs live, so Dynamic Type is tracked.
+        private static let metricsByStyle: [UIFont.TextStyle: UIFontMetrics] = [
+            .caption1: UIFontMetrics(forTextStyle: .caption1),
+            .footnote: UIFontMetrics(forTextStyle: .footnote),
+            .subheadline: UIFontMetrics(forTextStyle: .subheadline),
+            .body: UIFontMetrics(forTextStyle: .body),
+            .title3: UIFontMetrics(forTextStyle: .title3),
+            .title2: UIFontMetrics(forTextStyle: .title2),
+            .title1: UIFontMetrics(forTextStyle: .title1),
+        ]
         private static func scaledSize(_ size: CGFloat) -> CGFloat {
-            UIFontMetrics(forTextStyle: textStyle(for: size)).scaledValue(for: size)
+            let style = textStyle(for: size)
+            let metrics = metricsByStyle[style] ?? UIFontMetrics(forTextStyle: style)
+            return metrics.scaledValue(for: size)
         }
         static func display(_ size: CGFloat, weight: SwiftUI.Font.Weight = .bold) -> SwiftUI.Font {
             .system(size: scaledSize(size), weight: weight, design: .default)

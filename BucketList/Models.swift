@@ -179,11 +179,6 @@ enum Tags {
                desc: "ネット通販や店で買う「モノ・商品」。「あのスニーカーを買いたい」「新しいカメラが欲しい」「Amazonのあれを試したい」など。飲食店・カフェなど“行く場所”は含めない。"),
     ]
     static let maxCustom = 10
-
-    // The default description for a built-in tag key (used to seed the tag editor).
-    static func defaultDesc(forKey key: String) -> String? {
-        defaults.first { $0.key == key }?.desc
-    }
 }
 
 // How a tag applies across a set of selected items (bulk tag editing).
@@ -544,7 +539,7 @@ final class AppStore: ObservableObject {
         didSet { persistDocument() }
     }
     @Published var customTags: [TagDef] {
-        didSet { persistDocument() }
+        didSet { rebuildTagCache(); persistDocument() }
     }
 
     // Set when the store on disk was present but unreadable at launch. The UI
@@ -637,6 +632,8 @@ final class AppStore: ObservableObject {
         self.filters = prefs.filters
         self.sortMode = prefs.sortMode
         self.sortAscending = prefs.sortAscending
+        // Seed the tag lookup cache — customTags.didSet doesn't fire in init.
+        rebuildTagCache()
         // Show the walkthrough on the very first launch (and any explicit replay
         // from 設定). Assigning here doesn't fire the didSet, which is fine.
         self.showOnboarding = !Storage.onboardingDone
@@ -708,11 +705,22 @@ final class AppStore: ObservableObject {
     // Persisted via the tweaks didSet observer.
     func setGoal(_ v: Int, forYear y: Int) { tweaks.yearGoals[y] = v }
 
-    var allTags: [TagDef] { Tags.defaults + customTags }
+    // Built-ins + custom, plus a key→TagDef map, cached and rebuilt only when
+    // customTags changes. tagMeta(for:) is read per TagChip render (several per
+    // list publish), so an O(1) lookup with no per-call array allocation keeps
+    // that work off the render path. Rebuilt via customTags.didSet and once in
+    // init() (didSet does not fire during initialization).
+    private(set) var allTags: [TagDef] = Tags.defaults
+    private var tagMetaByKey: [String: TagDef] =
+        Dictionary(Tags.defaults.map { ($0.key, $0) }, uniquingKeysWith: { a, _ in a })
+
+    private func rebuildTagCache() {
+        allTags = Tags.defaults + customTags
+        tagMetaByKey = Dictionary(allTags.map { ($0.key, $0) }, uniquingKeysWith: { a, _ in a })
+    }
 
     func tagMeta(for key: String) -> TagDef {
-        allTags.first(where: { $0.key == key })
-            ?? TagDef(key: key, ja: key, builtin: false)
+        tagMetaByKey[key] ?? TagDef(key: key, ja: key, builtin: false)
     }
 
     // MARK: mutation — items
@@ -950,8 +958,7 @@ final class AppStore: ObservableObject {
     @discardableResult
     func add(title: String, priority: Priority,
              seasons: [SeasonTag], tags: [String],
-             meta: String, via: String? = nil, url: String? = nil,
-             autoPrio: Bool = false, autoSeasons: Bool = false) -> BucketItem {
+             meta: String, via: String? = nil, url: String? = nil) -> BucketItem {
         let id = nextId; nextId += 1
         let item = BucketItem(
             id: id, title: title, priority: priority,
@@ -962,11 +969,7 @@ final class AppStore: ObservableObject {
         )
         items.insert(item, at: 0)
         Haptics.success()
-        if autoPrio && autoSeasons {
-            flash("自動入力で保存しました。")
-        } else {
-            flash("保存しました。")
-        }
+        flash("保存しました。")
         return item
     }
 
@@ -989,13 +992,6 @@ final class AppStore: ObservableObject {
         customTags.append(TagDef(key: key, ja: trimmed, builtin: false))
         flash("「\(trimmed)」を追加しました。")
         return key
-    }
-
-    func renameCustomTag(key: String, to label: String) {
-        let trimmed = label.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return }
-        guard let idx = customTags.firstIndex(where: { $0.key == key }) else { return }
-        customTags[idx].ja = trimmed
     }
 
     // Update a custom tag's label and its optional AI description in one edit.
@@ -1059,7 +1055,14 @@ final class AppStore: ObservableObject {
     // consistent. The host replaces the whole document (it's the source of
     // truth for its session and reloads on foreground to absorb the extension).
     private func persistDocument() {
-        SharedStore.save(StoreDocument(items: items, customTags: customTags))
+        let doc = StoreDocument(items: items, customTags: customTags)
+        if SharedStore.save(doc) { return }
+        // A failed write leaves the in-memory list ahead of disk. Retry once —
+        // this covers a transient NSFileCoordinator / atomic-write hiccup. The
+        // read side (StoreLoad + backup recovery) still guards against loading
+        // damaged data on the next launch, so a persistent failure degrades to
+        // "last good snapshot" rather than a wipe.
+        _ = SharedStore.save(doc)
     }
     private func persistTweaks() { Storage.saveTweaks(tweaks) }
     private func persistPrefs() {
@@ -1095,21 +1098,29 @@ enum StoreLoad: Equatable {
 // old item then costs that one item — not the user's entire list.
 private struct LossyArray<Element: Decodable>: Decodable {
     let elements: [Element]
+    // How many raw slots failed to decode and were skipped. Lets callers tell a
+    // legitimately empty array (0 elements, 0 skipped) apart from one where every
+    // record failed (0 elements, N skipped) — the latter is the signature of a
+    // schema change that broke a required field across the whole list.
+    let skipped: Int
     private struct Skip: Decodable { init(from decoder: Decoder) throws {} }
     init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         var out: [Element] = []
         out.reserveCapacity(container.count ?? 0)
+        var skips = 0
         while !container.isAtEnd {
             if let value = try? container.decode(Element.self) {
                 out.append(value)
             } else {
                 // A failed decode does not advance the unkeyed container, so
                 // step past the unparseable slot to keep the loop moving.
+                skips += 1
                 _ = try? container.decode(Skip.self)
             }
         }
         elements = out
+        skipped = skips
     }
 }
 
@@ -1121,11 +1132,19 @@ private struct LossyDocument: Decodable {
     // happened to parse) — the caller treats that as unreadable rather than as
     // a legitimately empty store, so backup recovery can kick in.
     let hasAnyKey: Bool
+    // True when the stored items array held records but *every* one failed to
+    // decode. That's the fingerprint of a schema change to a required BucketItem
+    // field (e.g. id / priority) invalidating the whole list at once — as opposed
+    // to a genuinely empty list. interpret() promotes this to .unreadable so
+    // backup recovery runs instead of the empty result silently wiping the list.
+    let itemsAllFailed: Bool
     enum CodingKeys: String, CodingKey { case items, customTags }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         hasAnyKey = c.contains(.items) || c.contains(.customTags)
-        items = (try? c.decode(LossyArray<BucketItem>.self, forKey: .items))?.elements ?? []
+        let itemsArray = try? c.decode(LossyArray<BucketItem>.self, forKey: .items)
+        items = itemsArray?.elements ?? []
+        itemsAllFailed = (itemsArray?.elements.isEmpty == true) && (itemsArray?.skipped ?? 0) > 0
         customTags = (try? c.decode(LossyArray<TagDef>.self, forKey: .customTags))?.elements ?? []
     }
 }
@@ -1142,6 +1161,12 @@ private struct LossyDocument: Decodable {
 
 enum SharedStore {
     static let appGroupID = "group.teratech.BucketList"
+
+    // Shared, stateless coders. Building a JSONEncoder/JSONDecoder is non-trivial
+    // and the save path runs on every item mutation; each call uses them
+    // single-threaded, so one shared instance each is safe.
+    private static let encoder = JSONEncoder()
+    private static let decoder = JSONDecoder()
 
     private static var containerURL: URL? {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID)
@@ -1195,10 +1220,15 @@ enum SharedStore {
         // treat both as damaged so backup recovery can run instead of showing an
         // empty list and then overwriting a good backup.
         guard !data.isEmpty,
-              let doc = try? JSONDecoder().decode(LossyDocument.self, from: data),
+              let doc = try? decoder.decode(LossyDocument.self, from: data),
               doc.hasAnyKey else {
             return .unreadable
         }
+        // Every stored item failed to decode (a schema break across the whole
+        // list, not a genuinely empty one) — treat as damaged so load() recovers
+        // from the backup instead of returning an empty list that would then be
+        // written back over the last good data.
+        if doc.itemsAllFailed { return .unreadable }
         return .loaded(StoreDocument(items: doc.items, customTags: doc.customTags))
     }
 
@@ -1210,7 +1240,7 @@ enum SharedStore {
     @discardableResult
     static func save(_ doc: StoreDocument) -> Bool {
         guard let url = fileURL else { return Storage.legacySave(doc) }
-        guard let data = try? JSONEncoder().encode(doc) else { return false }
+        guard let data = try? encoder.encode(doc) else { return false }
         let coordinator = NSFileCoordinator()
         var coordErr: NSError?
         var ok = false
@@ -1240,7 +1270,7 @@ enum SharedStore {
             case .unreadable:    return   // never overwrite damaged data blindly
             }
             body(&doc)
-            guard let data = try? JSONEncoder().encode(doc) else { return }
+            guard let data = try? encoder.encode(doc) else { return }
             ok = write(data, to: u)
         }
         return ok && coordErr == nil
@@ -1305,6 +1335,11 @@ enum Storage {
     static let defaults: UserDefaults =
         UserDefaults(suiteName: appGroupID) ?? .standard
 
+    // Shared, stateless coders (see SharedStore). Reused across the tweaks /
+    // prefs / legacy read-write paths instead of allocating per call.
+    private static let encoder = JSONEncoder()
+    private static let decoder = JSONDecoder()
+
     // MARK: legacy item/tag blobs
     // Pre-SharedStore storage. Now read only as the migration source (and as
     // the fallback when the App Group container can't be resolved). Decoded
@@ -1319,35 +1354,39 @@ enum Storage {
     }
     @discardableResult
     static func legacySave(_ doc: StoreDocument) -> Bool {
-        if let d = try? JSONEncoder().encode(doc.items) { defaults.set(d, forKey: kItems) }
-        if let d = try? JSONEncoder().encode(doc.customTags) { defaults.set(d, forKey: kTags) }
+        // Report failure if either blob can't be encoded, so callers (the Share
+        // Extension's saveError guard) aren't told a dropped write succeeded.
+        guard let itemsData = try? encoder.encode(doc.items),
+              let tagsData = try? encoder.encode(doc.customTags) else { return false }
+        defaults.set(itemsData, forKey: kItems)
+        defaults.set(tagsData, forKey: kTags)
         return true
     }
     private static func legacyItems() -> [BucketItem] {
         guard let data = defaults.data(forKey: kItems) else { return [] }
-        return (try? JSONDecoder().decode(LossyArray<BucketItem>.self, from: data))?.elements ?? []
+        return (try? decoder.decode(LossyArray<BucketItem>.self, from: data))?.elements ?? []
     }
     private static func legacyCustomTags() -> [TagDef] {
         guard let data = defaults.data(forKey: kTags) else { return [] }
-        return (try? JSONDecoder().decode(LossyArray<TagDef>.self, from: data))?.elements ?? []
+        return (try? decoder.decode(LossyArray<TagDef>.self, from: data))?.elements ?? []
     }
 
     // MARK: tweaks / prefs (host-written; the extension reads tweaks)
 
     static func loadTweaks() -> Tweaks? {
         guard let data = defaults.data(forKey: kTweaks) else { return nil }
-        return try? JSONDecoder().decode(Tweaks.self, from: data)
+        return try? decoder.decode(Tweaks.self, from: data)
     }
     static func saveTweaks(_ t: Tweaks) {
-        guard let data = try? JSONEncoder().encode(t) else { return }
+        guard let data = try? encoder.encode(t) else { return }
         defaults.set(data, forKey: kTweaks)
     }
     static func loadPrefs() -> ViewPrefs? {
         guard let data = defaults.data(forKey: kPrefs) else { return nil }
-        return try? JSONDecoder().decode(ViewPrefs.self, from: data)
+        return try? decoder.decode(ViewPrefs.self, from: data)
     }
     static func savePrefs(_ p: ViewPrefs) {
-        guard let data = try? JSONEncoder().encode(p) else { return }
+        guard let data = try? encoder.encode(p) else { return }
         defaults.set(data, forKey: kPrefs)
     }
 
@@ -1473,10 +1512,15 @@ extension AppStore {
         filters.tags.isEmpty || it.tags.contains(where: filters.tags.contains)
     }
 
-    func nowScore(_ it: BucketItem) -> Double {
+    func nowScore(_ it: BucketItem) -> Double { nowScore(it, season: Clock.season) }
+
+    // Season is passed in so callers that score many items (the sort comparator,
+    // timingSuggestion) can read Clock.season once instead of per item/comparison
+    // — Clock.season is a Calendar.component call. Same result either way.
+    func nowScore(_ it: BucketItem, season: Season) -> Double {
         let tags = it.normalizedSeasons
         var s = 0.0
-        if tags.contains(.season(Clock.season)) { s += 2 }
+        if tags.contains(.season(season)) { s += 2 }
         if tags.contains(.any) { s += 0.4 }
         return s
     }
@@ -1484,7 +1528,13 @@ extension AppStore {
     // Seasons from now until a season tag is next active (0 = this season).
     // "いつでも" carries no specific season, so it sinks below dated items.
     func seasonRank(_ it: BucketItem) -> Int {
-        let order = Season.upcoming(from: Clock.season)   // [now, +1, +2, +3]
+        seasonRank(it, order: Season.upcoming(from: Clock.season))
+    }
+
+    // `order` is the upcoming-season sequence ([now, +1, +2, +3]); passed in so
+    // the sort comparator builds it once rather than allocating a 4-element array
+    // (and doing the Calendar call) on every comparison. Same result.
+    func seasonRank(_ it: BucketItem, order: [Season]) -> Int {
         let tags = it.normalizedSeasons
         var best = Int.max
         for t in tags {
@@ -1506,7 +1556,12 @@ extension AppStore {
     }
 
     private func naturalSorted(_ list: [BucketItem]) -> [BucketItem] {
-        list.sorted { a, b in
+        // Season-dependent frame constants: read once per sort instead of in
+        // every O(n·log n) comparison (each nowScore/seasonRank call otherwise
+        // did a Calendar.component lookup and, for season, allocated an array).
+        let currentSeason = Clock.season
+        let upcoming = Season.upcoming(from: currentSeason)   // [now, +1, +2, +3]
+        return list.sorted { a, b in
             // Done-ness deliberately does NOT reorder items — checking something
             // off should leave it in place. Only the "達成順" mode keys on it.
             switch sortMode {
@@ -1515,7 +1570,7 @@ extension AppStore {
                 if a.priority.weight != b.priority.weight {
                     return a.priority.weight > b.priority.weight
                 }
-                let sa = nowScore(a), sb = nowScore(b)
+                let sa = nowScore(a, season: currentSeason), sb = nowScore(b, season: currentSeason)
                 if sa != sb { return sa > sb }
             case .priority:
                 if a.priority.weight != b.priority.weight {
@@ -1524,7 +1579,7 @@ extension AppStore {
             case .added:
                 if a.id != b.id { return a.id > b.id }
             case .season:
-                let ra = seasonRank(a), rb = seasonRank(b)
+                let ra = seasonRank(a, order: upcoming), rb = seasonRank(b, order: upcoming)
                 if ra != rb { return ra < rb }
             case .name:
                 let c = a.title.localizedCompare(b.title)
@@ -1581,20 +1636,18 @@ extension AppStore {
 
 enum Classifier {
     static func priority(_ title: String) -> Priority {
-        let s = title
-        if matches(s, "オーロラ|アメリカ|海外|世界|留学|移住|本を書|小説") { return .someday }
-        if matches(s, "今週|今月|金曜|土曜|日曜|週末|代々木|渋谷|新宿|友達|銭湯|蕎麦") { return .top }
-        if matches(s, "花見|桜|花火|紅葉|海水浴|カニ|富士|ドライブ") { return .maybe }
+        if matches(title, "オーロラ|アメリカ|海外|世界|留学|移住|本を書|小説") { return .someday }
+        if matches(title, "今週|今月|金曜|土曜|日曜|週末|代々木|渋谷|新宿|友達|銭湯|蕎麦") { return .top }
+        // 季節ワード群も現状は既定と同値 (.maybe)。別優先度が要るならここで割り当てる。
         return .maybe
     }
 
     static func seasons(_ title: String) -> [SeasonTag] {
         var out = Set<SeasonTag>()
-        let s = title
-        if matches(s, "桜|花見|春") { out.insert(.season(.spring)) }
-        if matches(s, "紫陽花|梅雨|夏|海|海水浴|花火|BBQ|ビーチ|プール|富士") { out.insert(.season(.summer)) }
-        if matches(s, "紅葉|秋") { out.insert(.season(.fall)) }
-        if matches(s, "雪|スキー|スノボ|イルミ|カニ|オーロラ|冬") { out.insert(.season(.winter)) }
+        if matches(title, "桜|花見|春") { out.insert(.season(.spring)) }
+        if matches(title, "紫陽花|梅雨|夏|海|海水浴|花火|BBQ|ビーチ|プール|富士") { out.insert(.season(.summer)) }
+        if matches(title, "紅葉|秋") { out.insert(.season(.fall)) }
+        if matches(title, "雪|スキー|スノボ|イルミ|カニ|オーロラ|冬") { out.insert(.season(.winter)) }
         if out.isEmpty { out.insert(.any) }
         return Array(out)
     }
@@ -1768,11 +1821,12 @@ extension AppStore {
         // Season-fit and intent combined — a "someday / long-vacation" item
         // shouldn't outrank a top-priority one just because its season is
         // now; the suggestion must feel doable inside the frame.
+        let currentSeason = Clock.season
         func score(_ it: BucketItem) -> Double {
-            nowScore(it) + Double(it.priority.weight)
+            nowScore(it, season: currentSeason) + Double(it.priority.weight)
         }
         let picks = items
-            .filter { !$0.done && nowScore($0) > 0 }
+            .filter { !$0.done && nowScore($0, season: currentSeason) > 0 }
             .sorted { a, b in
                 let sa = score(a), sb = score(b)
                 if sa != sb { return sa > sb }

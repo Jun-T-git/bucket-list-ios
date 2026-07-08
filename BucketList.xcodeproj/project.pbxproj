@@ -323,7 +323,7 @@
 			};
 			buildConfigurationList = B00B0001000000000000A001 /* Build configuration list for PBXProject "BucketList" */;
 			compatibilityVersion = "Xcode 14.0";
-			developmentRegion = en;
+			developmentRegion = ja;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,

@@ -49,11 +49,15 @@ extension AppStore {
             guard let next = cal.date(byAdding: .month, value: 1, to: cursor) else { break }
             cursor = next
         }
+        // O(1) month-bucket lookup (year*12+month → hist index), built once, so
+        // filling the histogram is O(doneItems) instead of O(doneItems × months).
+        var indexByMonthKey: [Int: Int] = [:]
+        for (i, b) in hist.enumerated() { indexByMonthKey[b.year * 12 + b.month] = i }
         for it in doneItems {
             guard let at = it.doneAt else { continue }
             let m = cal.component(.month, from: at)
             let y = cal.component(.year, from: at)
-            guard let idx = hist.firstIndex(where: { $0.month == m && $0.year == y }) else { continue }
+            guard let idx = indexByMonthKey[y * 12 + m] else { continue }
             switch it.priority {
             case .top: hist[idx].top += 1
             case .maybe: hist[idx].maybe += 1
@@ -639,8 +643,10 @@ struct MonthlyStackChart: View {
             var order: [Int] = []
             var agg: [Int: (Int, Int, Int)] = [:]
             for h in hist {
-                if agg[h.year] == nil { order.append(h.year); agg[h.year] = (0, 0, 0) }
-                agg[h.year]!.0 += h.top; agg[h.year]!.1 += h.maybe; agg[h.year]!.2 += h.someday
+                if agg[h.year] == nil { order.append(h.year) }
+                agg[h.year, default: (0, 0, 0)].0 += h.top
+                agg[h.year, default: (0, 0, 0)].1 += h.maybe
+                agg[h.year, default: (0, 0, 0)].2 += h.someday
             }
             var out: [StackColumn] = []
             var t = 0, m = 0, s = 0

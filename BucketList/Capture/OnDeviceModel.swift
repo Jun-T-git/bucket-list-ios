@@ -139,8 +139,10 @@ extension OnDeviceModel {
         // the model classifies by meaning. This is the single source of truth for
         // tag guidance — no hard-coded category rules here.
         let tagSection = tags.map { t -> String in
-            let d = t.desc?.trimmingCharacters(in: .whitespacesAndNewlines)
-            return (d?.isEmpty == false) ? "- \(t.ja): \(d!)" : "- \(t.ja)"
+            if let d = t.desc?.trimmingCharacters(in: .whitespacesAndNewlines), !d.isEmpty {
+                return "- \(t.ja): \(d)"
+            }
+            return "- \(t.ja)"
         }.joined(separator: "\n")
         return instructionsBody(tagSection: tagSection)
     }

@@ -80,12 +80,14 @@ enum URLSafety {
     private static func isPrivateIP(_ host: String) -> Bool {
         // IPv6 loopback / unique-local.
         if host == "::1" || host.hasPrefix("fc") || host.hasPrefix("fd") { return true }
-        // IPv4 literal in a private / loopback / link-local range.
+        // IPv4 literal in a private / loopback / link-local range. Parse exactly
+        // four octets, each 0...255 — a non-numeric part is dropped by compactMap
+        // (→ count != 4), an out-of-range one fails allSatisfy; both → not-private
+        // path returns false, same as before.
         let parts = host.split(separator: ".")
-        guard parts.count == 4, let octets = try? parts.map({ p -> Int in
-            guard let n = Int(p), (0...255).contains(n) else { throw CocoaError(.featureUnsupported) }
-            return n
-        }) else { return false }
+        let octets = parts.compactMap { Int($0) }
+        guard parts.count == 4, octets.count == 4,
+              octets.allSatisfy({ (0...255).contains($0) }) else { return false }
         switch (octets[0], octets[1]) {
         case (127, _), (10, _), (192, 168), (169, 254): return true
         case (172, let b) where (16...31).contains(b): return true

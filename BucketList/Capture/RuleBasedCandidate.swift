@@ -58,7 +58,7 @@ enum RuleBasedCandidate {
             }
             // No clean name (e.g. an article headline) — the seasonal phenomenon
             // itself ("紅葉" 等) reads far better than a generic place noun.
-            if let (subject, _) = firstKeyword(signal, Self.seasonalPairs) {
+            if let subject = firstKeyword(signal, Self.seasonalPairs) {
                 return finish(subject, tagHints: ["leisure"], confidence: 0.55,
                               needsName: true, metadata: metadata, signal: signal, allTags: allTags)
             }
@@ -70,7 +70,7 @@ enum RuleBasedCandidate {
         }
 
         // Seasonal phenomenon outside an outing context (rare).
-        if let (subject, _) = firstKeyword(signal, Self.seasonalPairs) {
+        if let subject = firstKeyword(signal, Self.seasonalPairs) {
             return finish(subject, tagHints: ["leisure"], confidence: 0.55,
                           needsName: true, metadata: metadata, signal: signal, allTags: allTags)
         }
@@ -286,9 +286,11 @@ enum RuleBasedCandidate {
         ("花火", "花火"), ("イルミ", "イルミネーション"), ("ライトアップ", "ライトアップ"),
     ]
 
-    private static func firstKeyword(_ s: String, _ pairs: [(needle: String, subject: String)]) -> (String, String)? {
+    // Returns the matched pair's subject (the needle itself is never used by
+    // callers). nil when no pair matches.
+    private static func firstKeyword(_ s: String, _ pairs: [(needle: String, subject: String)]) -> String? {
         for p in pairs where matches(s, NSRegularExpression.escapedPattern(for: p.needle)) {
-            return (p.subject, p.needle)
+            return p.subject
         }
         return nil
     }

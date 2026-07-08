@@ -403,20 +403,7 @@ struct ListRow: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
 
             // sliding body
-            rowBody
-                .background(
-                    GeometryReader { geo in
-                        Color.clear.preference(key: CardHeightKey.self, value: geo.size.height)
-                    }
-                )
-                .offset(x: clampedOffset)
-                // simultaneousGesture (not .gesture): a plain .gesture DragGesture
-                // claims the touch as soon as it passes minimumDistance and starves
-                // the enclosing ScrollView, so a vertical pan that starts on a row
-                // never scrolls. Running simultaneously lets the ScrollView keep
-                // scrolling; the directional guard in onChanged means the row only
-                // moves for horizontal-dominant drags.
-                .simultaneousGesture(swipeGesture)
+            slidingCard
                 .contextMenu {
                     if !store.selectionMode {
                         Button {
@@ -573,6 +560,36 @@ struct ListRow: View {
     }
 
     // MARK: gesture
+
+    // The sliding card with the swipe-to-reveal gesture attached. iOS 18 changed
+    // ScrollView gesture arbitration: a SwiftUI DragGesture recognized on a row —
+    // even via simultaneousGesture — starves the enclosing ScrollView, so a
+    // vertical pan that starts on a card never scrolls. On 18+ we bridge a UIKit
+    // pan recognizer whose delegate refuses to begin unless the pan is
+    // horizontal-dominant; UIKit then hands vertical pans to the scroll view's
+    // own pan — the same arbitration native table-view swipe actions rely on.
+    // iOS 17 keeps the SwiftUI gesture (simultaneous + the directional guard in
+    // onChanged), which coexisted with scrolling there.
+    @ViewBuilder private var slidingCard: some View {
+        let card = rowBody
+            .background(
+                GeometryReader { geo in
+                    Color.clear.preference(key: CardHeightKey.self, value: geo.size.height)
+                }
+            )
+            .offset(x: clampedOffset)
+        if #available(iOS 18.0, *) {
+            card.gesture(HorizontalPanGesture(
+                isEnabled: !store.selectionMode,   // no swipe in selection mode
+                onBegan: beginDrag,
+                onChanged: { dragX = startBase + $0 },
+                onEnded: { settle(predicted: $0) }
+            ))
+        } else {
+            card.simultaneousGesture(swipeGesture)
+        }
+    }
+
     private var clampedOffset: CGFloat {
         if store.selectionMode { return 0 }   // no swipe reveal in selection mode
         return max(-revealWidth - 28, min(8, dragX))
@@ -585,30 +602,35 @@ struct ListRow: View {
                 // Only claim the gesture once the pan is clearly horizontal, so a
                 // vertical pan stays with the ScrollView instead of nudging the row.
                 guard abs(value.translation.width) > abs(value.translation.height) else { return }
-                if !dragging {
-                    dragging = true
-                    startBase = swipeOpen ? -revealWidth : 0
-                }
+                if !dragging { beginDrag() }
                 dragX = startBase + value.translation.width
             }
             .onEnded { value in
-                // Commit based on either distance OR velocity — a quick flick
-                // should open even if the finger didn't travel past the
-                // visual threshold. iOS-native swipe actions feel this way.
-                let predicted = value.predictedEndTranslation.width
-                let wasOpen = swipeOpen
-                let isOpen = dragX <= -swipeThresh || predicted < -revealWidth * 0.4
-                withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
-                    dragX = isOpen ? -revealWidth : 0
-                }
-                dragging = false
-                if isOpen {
-                    if !wasOpen { Haptics.light() }
-                    onSwipeOpen(item.id)
-                } else {
-                    onSwipeClose()
-                }
+                settle(predicted: value.predictedEndTranslation.width)
             }
+    }
+
+    private func beginDrag() {
+        dragging = true
+        startBase = swipeOpen ? -revealWidth : 0
+    }
+
+    // Commit based on either distance OR velocity — a quick flick should open
+    // even if the finger didn't travel past the visual threshold. iOS-native
+    // swipe actions feel this way.
+    private func settle(predicted: CGFloat) {
+        let wasOpen = swipeOpen
+        let isOpen = dragX <= -swipeThresh || predicted < -revealWidth * 0.4
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+            dragX = isOpen ? -revealWidth : 0
+        }
+        dragging = false
+        if isOpen {
+            if !wasOpen { Haptics.light() }
+            onSwipeOpen(item.id)
+        } else {
+            onSwipeClose()
+        }
     }
 
     private func close() {
@@ -620,5 +642,61 @@ struct ListRow: View {
         if store.selectionMode { store.toggleSelection(item.id); return }
         if swipeOpen || abs(dragX) > 6 { close(); return }
         onTap()
+    }
+}
+
+// MARK: - HorizontalPanGesture (iOS 18+)
+
+// UIKit pan recognizer bridged into SwiftUI for the row swipe. Its delegate
+// only lets the pan begin when the movement is horizontal-dominant, so a
+// vertical pan fails here and the enclosing ScrollView scrolls instead —
+// see the slidingCard comment in ListRow for why the SwiftUI DragGesture
+// can't do this on iOS 18+.
+@available(iOS 18.0, *)
+private struct HorizontalPanGesture: UIGestureRecognizerRepresentable {
+    let isEnabled: Bool
+    let onBegan: () -> Void
+    let onChanged: (CGFloat) -> Void
+    // Receives the projected end translation (translation + flick), mirroring
+    // DragGesture.Value.predictedEndTranslation so thresholds feel identical.
+    let onEnded: (CGFloat) -> Void
+
+    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator { Coordinator() }
+
+    func makeUIGestureRecognizer(context: Context) -> UIPanGestureRecognizer {
+        let pan = UIPanGestureRecognizer()
+        pan.delegate = context.coordinator
+        return pan
+    }
+
+    func updateUIGestureRecognizer(_ recognizer: UIPanGestureRecognizer, context: Context) {
+        recognizer.isEnabled = isEnabled
+    }
+
+    func handleUIGestureRecognizerAction(_ recognizer: UIPanGestureRecognizer, context: Context) {
+        let translation = recognizer.translation(in: recognizer.view).x
+        switch recognizer.state {
+        case .began:
+            onBegan()
+            onChanged(translation)
+        case .changed:
+            onChanged(translation)
+        case .ended, .cancelled, .failed:
+            // Project the flick with UIScrollView's .normal deceleration
+            // (WWDC18 "Designing Fluid Interfaces"): d = v × rate/(1−rate)/1000.
+            let velocity = recognizer.velocity(in: recognizer.view).x
+            let rate = UIScrollView.DecelerationRate.normal.rawValue
+            onEnded(translation + velocity * rate / (1 - rate) / 1000)
+        default:
+            break
+        }
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        func gestureRecognizerShouldBegin(_ gesture: UIGestureRecognizer) -> Bool {
+            guard let pan = gesture as? UIPanGestureRecognizer else { return true }
+            let v = pan.velocity(in: pan.view)
+            return abs(v.x) > abs(v.y)
+        }
     }
 }
