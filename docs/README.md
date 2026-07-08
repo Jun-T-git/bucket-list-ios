@@ -17,7 +17,7 @@ docs/
     capture-pipeline.md       URL → やりたいこと候補（オンデバイス）
   workflows/                 どう回すか（作業手順）
     build-and-verify.md       ビルド・型チェック・テスト・視覚確認・hooks の関係
-    release-runbook.md        App Store 提出の手順
+    release-runbook.md        App Store 提出・TestFlight 配信の手順（scripts/release-testflight.sh）
     app-store-metadata.md     ストア掲載メタデータ（コピペ用）
   decisions/                 なぜそう決めたか（ADR＝決定の記録。蒸し返し防止）
   index.html                 公開ポリシー/サポートページ（GitHub Pages。※移動禁止）

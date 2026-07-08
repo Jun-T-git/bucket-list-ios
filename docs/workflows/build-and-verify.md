@@ -74,3 +74,10 @@ UI・哲学は視覚依存（[設計原則§1–3](../philosophy/02-設計原則
 - **PostToolUse フック**：`*.swift` の Edit/Write 直後に同じ型チェックで即時フィードバック。
 - **PreToolUse フック**：`docs/philosophy/**`・`docs/decisions/**` の編集時に確認を促す（正典ガード）。
 - ノイズが多いと感じたら `.claude/settings.json` の該当フックを外して Stop ゲートだけに縮退できる。
+
+## CI（GitHub Actions）と配信
+
+- **CI**：`.github/workflows/ci.yml` が push（main）/ PR ごとに §1→2→3 を macOS ランナーで実行する。
+  署名不要（シミュレータのみ）なのでシークレット設定は不要。
+- **TestFlight 配信**：`scripts/release-testflight.sh`（スキル `/deploy-testflight`）。
+  手順の全体は [release-runbook.md](release-runbook.md#6-ビルドをアップロード)。

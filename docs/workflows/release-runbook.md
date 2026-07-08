@@ -49,11 +49,26 @@ App Store Connect → **マイApp** → **＋** → 新規App:
   `screenshots/marketing/generate.py` を参照。
 
 ## 6. ビルドをアップロード
+
+**推奨: スクリプトで一括**（型チェック→ビルド番号+1→アーカイブ→アップロード。スキル `/deploy-testflight` でも同じ）:
+
+```sh
+scripts/release-testflight.sh                  # ビルド番号を +1 して配信
+scripts/release-testflight.sh --version 1.0.2  # リリース済みトレインが閉じている場合はバージョンを上げる
+```
+
+前提は Xcode に Apple ID サインイン済みのみ（認証・署名に使う）。成功したら pbxproj のバージョン変更をコミットする。
+
+<details><summary>手動（Xcode GUI）の場合</summary>
+
 1. Xcode 上部のデバイス選択を **Any iOS Device (arm64)** に。
 2. **Product → Archive**。
 3. 完了後 **Organizer** が開く → **Distribute App** → **App Store Connect** → **Upload**。
-4. 数分〜数十分で ASC の「TestFlight/ビルド」に表示される（処理中はしばらく待つ）。
-5. バージョン 1.0 の「ビルド」欄でアップロードしたビルドを選択。
+
+</details>
+
+- 数分〜数十分で ASC の「TestFlight/ビルド」に表示される（処理中はしばらく待つ）。
+- 審査に出す場合は、対象バージョンの「ビルド」欄でアップロードしたビルドを選択。
 
 ## 7. 審査へ提出
 - **App Review 情報**（連絡先・審査メモ）を `app-store-metadata.md` から記入。
