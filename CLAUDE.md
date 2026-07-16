@@ -32,7 +32,7 @@ iOS SwiftUI アプリ。**このファイルは毎セッション読み込まれ
 
 真実の源は単一の `AppStore: ObservableObject`（`BucketList/Models.swift`、約1800行）。per-screen MVVM ではない。
 永続化は3層すべて JSON（SwiftData/Core Data 不使用）：App Group の `store.json`（`SharedStore`）＋ UserDefaults ＋ 旧データ移行。
-アプリ↔共有拡張は App Group `group.teratech.BucketList` で共有。詳細 → [`docs/architecture/overview.md`](docs/architecture/overview.md)。
+アプリ↔共有拡張↔ホームウィジェットは App Group `group.teratech.BucketList` で共有（ウィジェットは `SharedStore.snapshot()` を読み取り専用）。詳細 → [`docs/architecture/overview.md`](docs/architecture/overview.md)。
 
 - **データモデル（3軸：優先度×季節×タグ）** → [`docs/architecture/data-model.md`](docs/architecture/data-model.md)
 - **URL→候補パイプライン（オンデバイス AI）** → [`docs/architecture/capture-pipeline.md`](docs/architecture/capture-pipeline.md)
@@ -40,6 +40,7 @@ iOS SwiftUI アプリ。**このファイルは毎セッション読み込まれ
 - **UI プリミティブ** = `Theme.swift`（色/フォント/`glass`/`Haptics`）＋ `Components.swift`。
 - **主要画面**：`ContentView`(ルート/タブ) `HomeView`(リスト) `AddEditSheet` `ReportView` `SettingsView` `FilterSheet`。
 - **Pro（v1.0 は無効）**：`ProStore.swift` / `PaywallView.swift`（[ADR 0005](docs/decisions/0005-v1無料とPro無効フラグ.md)）。
+- **ホームウィジェット**：`WidgetExtension/`（タイミング提案を Small/Medium で表示）。提案の選定は純関数 `TimingEngine`（`Models.swift`）を本体と共有。
 
 ## 変更時の必須フロー
 

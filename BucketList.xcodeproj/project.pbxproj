@@ -47,6 +47,12 @@
 		B0F40012000000000000A004 /* ItemForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0F40010000000000000A004 /* ItemForm.swift */; };
 		B0F6000E000000000000A005 /* CoreModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0F6000C000000000000A005 /* CoreModelTests.swift */; };
 		B0F6000F000000000000A005 /* CaptureLogicTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0F6000D000000000000A005 /* CaptureLogicTests.swift */; };
+		B0D10001000000000000A006 /* WishesWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D20001000000000000A006 /* WishesWidget.swift */; };
+		B0D10002000000000000A006 /* WishesWidgetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D20002000000000000A006 /* WishesWidgetViews.swift */; };
+		B0D10003000000000000A006 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0020004000000000000A001 /* Models.swift */; };
+		B0D10004000000000000A006 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0020003000000000000A001 /* Theme.swift */; };
+		B0D10005000000000000A006 /* WidgetExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = B0D20005000000000000A006 /* WidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		B0D10006000000000000A006 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B0D20007000000000000A006 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -64,6 +70,13 @@
 			remoteGlobalIDString = B0060001000000000000A001;
 			remoteInfo = BucketList;
 		};
+		B0DA0001000000000000A006 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B00A0001000000000000A001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B0D60001000000000000A006;
+			remoteInfo = WidgetExtension;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -74,6 +87,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				B0E10005000000000000A002 /* ShareExtension.appex in Embed App Extensions */,
+				B0D10005000000000000A006 /* WidgetExtension.appex in Embed App Extensions */,
 			);
 			name = "Embed App Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -117,6 +131,12 @@
 		B0F6000A000000000000A005 /* BucketListTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BucketListTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B0F6000C000000000000A005 /* CoreModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreModelTests.swift; sourceTree = "<group>"; };
 		B0F6000D000000000000A005 /* CaptureLogicTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureLogicTests.swift; sourceTree = "<group>"; };
+		B0D20001000000000000A006 /* WishesWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishesWidget.swift; sourceTree = "<group>"; };
+		B0D20002000000000000A006 /* WishesWidgetViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishesWidgetViews.swift; sourceTree = "<group>"; };
+		B0D20003000000000000A006 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B0D20004000000000000A006 /* WidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = WidgetExtension.entitlements; sourceTree = "<group>"; };
+		B0D20005000000000000A006 /* WidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = WidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		B0D20007000000000000A006 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -141,6 +161,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B0D40001000000000000A006 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -149,6 +176,7 @@
 			children = (
 				B0050002000000000000A001 /* BucketList */,
 				B0E50001000000000000A002 /* ShareExtension */,
+				B0D50001000000000000A006 /* WidgetExtension */,
 				B0F6000B000000000000A005 /* BucketListTests */,
 				B0050003000000000000A001 /* Products */,
 			);
@@ -187,6 +215,7 @@
 			children = (
 				B0030001000000000000A001 /* Wishes.app */,
 				B0E20005000000000000A002 /* ShareExtension.appex */,
+				B0D20005000000000000A006 /* WidgetExtension.appex */,
 				B0F6000A000000000000A005 /* BucketListTests.xctest */,
 			);
 			name = Products;
@@ -219,6 +248,18 @@
 				B0E20007000000000000A002 /* PrivacyInfo.xcprivacy */,
 			);
 			path = ShareExtension;
+			sourceTree = "<group>";
+		};
+		B0D50001000000000000A006 /* WidgetExtension */ = {
+			isa = PBXGroup;
+			children = (
+				B0D20001000000000000A006 /* WishesWidget.swift */,
+				B0D20002000000000000A006 /* WishesWidgetViews.swift */,
+				B0D20003000000000000A006 /* Info.plist */,
+				B0D20004000000000000A006 /* WidgetExtension.entitlements */,
+				B0D20007000000000000A006 /* PrivacyInfo.xcprivacy */,
+			);
+			path = WidgetExtension;
 			sourceTree = "<group>";
 		};
 		B0F50001000000000000A003 /* Capture */ = {
@@ -258,6 +299,7 @@
 			);
 			dependencies = (
 				B0E90001000000000000A002 /* PBXTargetDependency */,
+				B0D90001000000000000A006 /* PBXTargetDependency */,
 			);
 			name = BucketList;
 			productName = BucketList;
@@ -279,6 +321,23 @@
 			name = ShareExtension;
 			productName = ShareExtension;
 			productReference = B0E20005000000000000A002 /* ShareExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		B0D60001000000000000A006 /* WidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B0DB0001000000000000A006 /* Build configuration list for PBXNativeTarget "WidgetExtension" */;
+			buildPhases = (
+				B0D80001000000000000A006 /* Sources */,
+				B0D40001000000000000A006 /* Frameworks */,
+				B0DD0001000000000000A006 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = WidgetExtension;
+			productName = WidgetExtension;
+			productReference = B0D20005000000000000A006 /* WidgetExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 		B0F60001000000000000A005 /* BucketListTests */ = {
@@ -315,6 +374,9 @@
 					B0E60001000000000000A002 = {
 						CreatedOnToolsVersion = 15.0;
 					};
+					B0D60001000000000000A006 = {
+						CreatedOnToolsVersion = 15.0;
+					};
 					B0F60001000000000000A005 = {
 						CreatedOnToolsVersion = 15.0;
 						TestTargetID = B0060001000000000000A001;
@@ -337,6 +399,7 @@
 			targets = (
 				B0060001000000000000A001 /* BucketList */,
 				B0E60001000000000000A002 /* ShareExtension */,
+				B0D60001000000000000A006 /* WidgetExtension */,
 				B0F60001000000000000A005 /* BucketListTests */,
 			);
 		};
@@ -365,6 +428,14 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B0DD0001000000000000A006 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B0D10006000000000000A006 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -427,6 +498,17 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B0D80001000000000000A006 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B0D10001000000000000A006 /* WishesWidget.swift in Sources */,
+				B0D10002000000000000A006 /* WishesWidgetViews.swift in Sources */,
+				B0D10003000000000000A006 /* Models.swift in Sources */,
+				B0D10004000000000000A006 /* Theme.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -439,6 +521,11 @@
 			isa = PBXTargetDependency;
 			target = B0060001000000000000A001 /* BucketList */;
 			targetProxy = B0F60009000000000000A005 /* PBXContainerItemProxy */;
+		};
+		B0D90001000000000000A006 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B0D60001000000000000A006 /* WidgetExtension */;
+			targetProxy = B0DA0001000000000000A006 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -696,6 +783,56 @@
 			};
 			name = Release;
 		};
+		B0DC0001000000000000A006 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = WidgetExtension/WidgetExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 5;
+				DEVELOPMENT_TEAM = JD7L34U2WS;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = WidgetExtension/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = teratech.BucketList.Widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		B0DC0002000000000000A006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = WidgetExtension/WidgetExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 5;
+				DEVELOPMENT_TEAM = JD7L34U2WS;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = WidgetExtension/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = teratech.BucketList.Widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
 		B0F60003000000000000A005 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -769,6 +906,15 @@
 			buildConfigurations = (
 				B0F60003000000000000A005 /* Debug */,
 				B0F60004000000000000A005 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B0DB0001000000000000A006 /* Build configuration list for PBXNativeTarget "WidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B0DC0001000000000000A006 /* Debug */,
+				B0DC0002000000000000A006 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

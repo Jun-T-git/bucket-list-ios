@@ -62,14 +62,15 @@
 - `Classifier` … タイトル入力中に優先度/季節/タグを即時下書きする**正規表現ベースのオフライン分類器**
   （コンパイル済み正規表現キャッシュあり）。設定の自動分類 OFF を尊重。
 - `NotificationPlanner` … 特定アイテムを名指しするローカル `UNCalendarNotificationTrigger` 群。
-- `TimingSuggestion` / `AppStore.timingSuggestion()` … タイミング提案（[コアコンセプト§5③](../philosophy/01-コアコンセプト.md)）。
+- `TimingSuggestion` / `TimingEngine.suggestion(items:)` … タイミング提案（[コアコンセプト§5③](../philosophy/01-コアコンセプト.md)）。
   今日の位置（年末＞週末[金-日]＞月初＞季節終わり＞季節中）からフレームを選び、開いている項目を
-  季節適合＋優先度で最大3件。
+  季節適合＋優先度で最大3件。`[BucketItem]` を受ける純関数 `TimingEngine`（季節適合スコアは `TimingEngine.nowScore`）に
+  抽出済みで、`AppStore.timingSuggestion()`（本体ホームバナー）と `WidgetExtension`（ホームウィジェット）が同一ロジックを共有。
 - `Seed` … デモ/スクショ専用データ。**実ユーザーには出さない**（新規インストール = 空リスト）。
 
 ## テスト対象として価値が高いロジック
 
 純粋関数的で UI に依存しないため、[テスト](../workflows/build-and-verify.md)の主対象：
-`Classifier` / `TimingSuggestion`（`Clock.override` で分岐）/ `SeasonTag.from(key:)`＋`normalizedSeasons` /
+`Classifier` / `TimingEngine`（`Clock.override` で分岐）/ `SeasonTag.from(key:)`＋`normalizedSeasons` /
 filter・sort（`nowScore`/`seasonRank`/`filterCounts`）/ 寛容 `Codable`（`LossyArray`/`StoreLoad`）/
 `TagValidator`（[capture-pipeline](capture-pipeline.md)）。

@@ -22,6 +22,7 @@ BucketList/
   Theme.swift           — tokens.css → Color/Font/shadow constants, Haptics
   Models.swift          — Item / Priority / Season / Tag / AppStore /
                           Storage / Classifier / Clock / TimingSuggestion /
+                          TimingEngine (pure, shared with the widget) /
                           NotificationPlanner / SeasonalCopy
   Components.swift      — HighlightWord, ToastView, PriorityPill,
                           SeasonChip(+Row), TagChip(+Row), Check,
@@ -56,6 +57,13 @@ ShareExtension/         — 共有拡張ターゲット (コア体験① 回収)
   Info.plist            — NSExtension (share-services activation rule)
   ShareExtension.entitlements — same App Group as the host app
   (reuses Models.swift + Theme.swift via shared target membership)
+WidgetExtension/        — ホームウィジェットターゲット (コア体験③ タイミング提案)
+  WishesWidget.swift      — WidgetBundle / TimelineProvider: reads
+                          SharedStore.snapshot() read-only, runs TimingEngine
+  WishesWidgetViews.swift — Small / Medium SwiftUI views (frame line + up to 3)
+  WidgetExtension.entitlements — same App Group as the host app
+  (reuses Models.swift + Theme.swift via shared target membership;
+   tap opens the app — no deep link by design)
 ```
 
 ## Core behaviour
@@ -64,10 +72,12 @@ ShareExtension/         — 共有拡張ターゲット (コア体験① 回収)
   is timing-based nudges, so hero copy, NOW badges, suggestions, and the
   report all follow today's date. Set `Clock.override` to pin a date for
   screenshots/previews.
-- **Timing suggestions (コア体験③)** — `AppStore.timingSuggestion()` picks
+- **Timing suggestions (コア体験③)** — `TimingEngine.suggestion(items:)` picks
   a frame from where today sits (年末 > 週末 [Fri–Sun] > 月初 > 季節の
   終わり > 季節中) and offers up to 3 open items ranked by
   season-fit + priority, so weekend frames don't surface "someday" trips.
+  It's a pure function over `[BucketItem]`, so the in-app Home banner
+  (`AppStore.timingSuggestion()`) and the home-screen widget share it verbatim.
 - **Real report** — items carry `doneAt`; the レポート chart, pace card and
   totals aggregate the user's actual history (last 12 months). Friendly
   empty states when there's no data yet. "これからの季節" starts at the

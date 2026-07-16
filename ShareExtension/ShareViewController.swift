@@ -1,6 +1,7 @@
 import UIKit
 import SwiftUI
 import UniformTypeIdentifiers
+import WidgetKit
 
 // Principal class for the share extension. The system shows this view
 // controller in a sheet when the user picks Wishes from the share
@@ -33,6 +34,10 @@ final class ShareViewController: UIViewController {
     }
 
     private func complete() {
+        // The compose sheet has already merged the new item into the shared
+        // store — refresh the home-screen widget so it reflects the capture
+        // without waiting for the app to next foreground.
+        WidgetCenter.shared.reloadAllTimelines()
         extensionContext?.completeRequest(returningItems: nil)
     }
 

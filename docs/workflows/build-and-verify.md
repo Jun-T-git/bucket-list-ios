@@ -42,7 +42,7 @@ xcodebuild -project BucketList.xcodeproj -scheme BucketListTests \
     -derivedDataPath /tmp/test-build test
 ```
 
-- 対象は UI 非依存の純ロジック（`Classifier` / `TimingSuggestion` / `SeasonTag` / filter・sort /
+- 対象は UI 非依存の純ロジック（`Classifier` / `TimingEngine` / `SeasonTag` / filter・sort /
   寛容 `Codable` / `TagValidator`）。詳細は [data-model](../architecture/data-model.md#テスト対象として価値が高いロジック)。
 - 追加は新規テストファイル ＋ `BucketListTests` ターゲットへ。既存アプリロジックの挙動は変えない。
 - スキル `/verify-build` が 1.→2.→3. をまとめて実行する。

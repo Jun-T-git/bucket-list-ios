@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import Combine
 import UserNotifications
+import WidgetKit
 
 // MARK: - Feature flags
 
@@ -1056,13 +1057,21 @@ final class AppStore: ObservableObject {
     // truth for its session and reloads on foreground to absorb the extension).
     private func persistDocument() {
         let doc = StoreDocument(items: items, customTags: customTags)
-        if SharedStore.save(doc) { return }
+        if SharedStore.save(doc) { reloadWidgets(); return }
         // A failed write leaves the in-memory list ahead of disk. Retry once —
         // this covers a transient NSFileCoordinator / atomic-write hiccup. The
         // read side (StoreLoad + backup recovery) still guards against loading
         // damaged data on the next launch, so a persistent failure degrades to
         // "last good snapshot" rather than a wipe.
         _ = SharedStore.save(doc)
+        reloadWidgets()
+    }
+
+    // Any change to the document may change the timing suggestion the home-screen
+    // widget shows — refresh its timeline after each successful persist so the
+    // widget never lags the list. Cheap and idempotent; no-op if no widget added.
+    private func reloadWidgets() {
+        WidgetCenter.shared.reloadAllTimelines()
     }
     private func persistTweaks() { Storage.saveTweaks(tweaks) }
     private func persistPrefs() {
@@ -1518,11 +1527,7 @@ extension AppStore {
     // timingSuggestion) can read Clock.season once instead of per item/comparison
     // — Clock.season is a Calendar.component call. Same result either way.
     func nowScore(_ it: BucketItem, season: Season) -> Double {
-        let tags = it.normalizedSeasons
-        var s = 0.0
-        if tags.contains(.season(season)) { s += 2 }
-        if tags.contains(.any) { s += 0.4 }
-        return s
+        TimingEngine.nowScore(it, season: season)
     }
 
     // Seasons from now until a season tag is next active (0 = this season).
@@ -1817,7 +1822,33 @@ struct TimingSuggestion {
 }
 
 extension AppStore {
+    // Thin delegate — the selection itself lives in TimingEngine so the widget
+    // extension can produce the identical nudge from the shared store without
+    // building an AppStore. The home banner and the widget must never diverge.
     func timingSuggestion() -> TimingSuggestion? {
+        TimingEngine.suggestion(items: items)
+    }
+}
+
+// MARK: - TimingEngine
+// "適切なタイミングで差し出す" as a pure function over [BucketItem]. Shared by
+// the app (AppStore.timingSuggestion) and the home-screen widget, which reads
+// SharedStore.snapshot().items directly. No AppStore state is consulted — the
+// selection depends only on the items, Clock, and season fit.
+
+enum TimingEngine {
+    // Season-fit score: current-season match +2, "いつでも" (.any) +0.4. The single
+    // definition — AppStore.nowScore delegates here so the sort path and the
+    // suggestion stay in lockstep.
+    static func nowScore(_ it: BucketItem, season: Season) -> Double {
+        let tags = it.normalizedSeasons
+        var s = 0.0
+        if tags.contains(.season(season)) { s += 2 }
+        if tags.contains(.any) { s += 0.4 }
+        return s
+    }
+
+    static func suggestion(items: [BucketItem]) -> TimingSuggestion? {
         // Season-fit and intent combined — a "someday / long-vacation" item
         // shouldn't outrank a top-priority one just because its season is
         // now; the suggestion must feel doable inside the frame.
@@ -1837,7 +1868,8 @@ extension AppStore {
         return TimingSuggestion(line: frameLine(), picks: Array(picks))
     }
 
-    private func frameLine() -> String {
+    // Frames in scarcity order: year-end > weekend > month-start > season-close.
+    static func frameLine() -> String {
         if Clock.isYearEnd { return "今年のうちにおすすめ" }
         if Clock.isWeekendish { return "今週末におすすめ" }
         if Clock.isMonthStart { return "今月におすすめ" }

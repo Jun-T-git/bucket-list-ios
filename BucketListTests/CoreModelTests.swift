@@ -1,4 +1,5 @@
 import Testing
+import Foundation
 @testable import Wishes
 
 // Pure-logic tests for the 3-axis model (優先度 × 季節 × タグ).
@@ -76,5 +77,68 @@ struct BucketItemTests {
     @Test func nonEmptySeasonsPassThrough() {
         let s: [SeasonTag] = [.season(.spring), .season(.summer)]
         #expect(item(seasons: s).normalizedSeasons == s)
+    }
+}
+
+// TimingEngine is the shared "適切なタイミングで差し出す" selection used by both the
+// in-app home banner (AppStore.timingSuggestion) and the home-screen widget. Lock
+// its behavior so the two surfaces can't silently diverge.
+struct TimingEngineTests {
+    private func item(id: Int, _ priority: Priority, _ seasons: [SeasonTag],
+                      done: Bool = false) -> BucketItem {
+        BucketItem(id: id, title: "t\(id)", priority: priority, seasons: seasons,
+                   tags: [], meta: "", done: done, via: nil, url: nil, savedAt: "2026·07·05")
+    }
+
+    // Fix "now" to summer so season fit is deterministic regardless of run date.
+    private func withSummer(_ body: () -> Void) {
+        let saved = Clock.override
+        // 2026-07-15 is a Wednesday in summer — avoids weekend/month-start/year-end
+        // frames so the season line is the one under test.
+        var comps = DateComponents()
+        comps.year = 2026; comps.month = 7; comps.day = 15
+        Clock.override = Calendar.current.date(from: comps)
+        defer { Clock.override = saved }
+        body()
+    }
+
+    @Test func picksSeasonFitOpenItemsOnly() {
+        withSummer {
+            let items = [
+                item(id: 1, .someday, [.season(.summer)]),   // fits now
+                item(id: 2, .top, [.season(.winter)]),       // wrong season → excluded
+                item(id: 3, .maybe, [], done: true),         // done → excluded
+            ]
+            let s = TimingEngine.suggestion(items: items)
+            #expect(s != nil)
+            #expect(s?.picks.map(\.id) == [1])
+        }
+    }
+
+    // Season fit + priority weight combine: a summer top item outranks a summer
+    // someday one, and an "いつでも" (.any) item ranks below a season match.
+    @Test func ranksBySeasonFitThenPriority() {
+        withSummer {
+            let items = [
+                item(id: 1, .someday, [.season(.summer)]),   // 2 + 1 = 3
+                item(id: 2, .top, [.season(.summer)]),       // 2 + 3 = 5
+                item(id: 3, .top, []),                       // .any: 0.4 + 3 = 3.4
+            ]
+            let s = TimingEngine.suggestion(items: items)
+            #expect(s?.picks.map(\.id) == [2, 3, 1])
+        }
+    }
+
+    @Test func returnsNilWhenNothingFits() {
+        withSummer {
+            let items = [item(id: 1, .top, [.season(.winter)])]
+            #expect(TimingEngine.suggestion(items: items) == nil)
+        }
+    }
+
+    @Test func summerFrameLineWhenNoScarcerFrame() {
+        withSummer {
+            #expect(TimingEngine.frameLine() == "夏におすすめ")
+        }
     }
 }
