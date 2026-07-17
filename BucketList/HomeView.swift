@@ -20,7 +20,7 @@ struct HomeView: View {
                 if let sug = suggestion() {
                     InlineSuggestionBanner(
                         line: sug.line,
-                        picks: sug.picks.map {
+                        picks: sug.picks.prefix(3).map {
                             SuggestionPick(id: $0.id, title: trimmedTitle($0.title))
                         },
                         onPick: { p in

@@ -90,17 +90,19 @@ struct TimingEngineTests {
                    tags: [], meta: "", done: done, via: nil, url: nil, savedAt: "2026·07·05")
     }
 
-    // Fix "now" to summer so season fit is deterministic regardless of run date.
-    private func withSummer(_ body: () -> Void) {
+    // Fix "now" to a given summer date so season fit + day seed are deterministic
+    // regardless of when the test runs. 2026-07-15/16 are Wed/Thu in summer —
+    // avoid weekend/month-start/year-end frames so the season line is under test.
+    private func withDate(_ y: Int, _ m: Int, _ d: Int, _ body: () -> Void) {
         let saved = Clock.override
-        // 2026-07-15 is a Wednesday in summer — avoids weekend/month-start/year-end
-        // frames so the season line is the one under test.
         var comps = DateComponents()
-        comps.year = 2026; comps.month = 7; comps.day = 15
+        comps.year = y; comps.month = m; comps.day = d
         Clock.override = Calendar.current.date(from: comps)
         defer { Clock.override = saved }
         body()
     }
+
+    private func withSummer(_ body: () -> Void) { withDate(2026, 7, 15, body) }
 
     @Test func picksSeasonFitOpenItemsOnly() {
         withSummer {
@@ -127,6 +129,31 @@ struct TimingEngineTests {
             let s = TimingEngine.suggestion(items: items)
             #expect(s?.picks.map(\.id) == [2, 3, 1])
         }
+    }
+
+    // Same-score items rotate by the day so the widget/banner gently changes,
+    // while staying deterministic (same day → same order). Two summer .maybe
+    // items tie (2 + 2); consecutive days flip their order but keep the same set.
+    @Test func tiedItemsRotateByDay() {
+        let items = [item(id: 10, .maybe, [.season(.summer)]),
+                     item(id: 20, .maybe, [.season(.summer)])]
+        var day15: [Int] = [], day16: [Int] = []
+        withDate(2026, 7, 15) { day15 = TimingEngine.suggestion(items: items)!.picks.map(\.id) }
+        withDate(2026, 7, 16) { day16 = TimingEngine.suggestion(items: items)!.picks.map(\.id) }
+        #expect(day15 != day16)                 // order changed with the day
+        #expect(Set(day15) == Set(day16))       // same items, just reordered
+        #expect(Set(day15) == [10, 20])
+    }
+
+    // A clear winner (distinct score) must NOT rotate — only genuine ties do.
+    @Test func distinctScoresDoNotRotate() {
+        let items = [item(id: 1, .top, [.season(.summer)]),      // 2 + 3 = 5
+                     item(id: 2, .someday, [.season(.summer)])]  // 2 + 1 = 3
+        var a: [Int] = [], b: [Int] = []
+        withDate(2026, 7, 15) { a = TimingEngine.suggestion(items: items)!.picks.map(\.id) }
+        withDate(2026, 7, 16) { b = TimingEngine.suggestion(items: items)!.picks.map(\.id) }
+        #expect(a == [1, 2])
+        #expect(b == [1, 2])
     }
 
     @Test func returnsNilWhenNothingFits() {

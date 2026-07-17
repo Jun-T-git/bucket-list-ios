@@ -12,7 +12,7 @@ import SwiftUI
 struct WishPick: Identifiable {
     let id: Int
     let title: String
-    let priority: Priority
+    let meta: String            // optional context ("東京・渋谷" 等); "" if none
 }
 
 struct WishEntry: TimelineEntry {
@@ -25,9 +25,10 @@ struct WishEntry: TimelineEntry {
         date: Date(),
         line: "今週末におすすめ",
         picks: [
-            WishPick(id: 1, title: "海でBBQ", priority: .top),
-            WishPick(id: 2, title: "オーロラ", priority: .maybe),
-            WishPick(id: 3, title: "代々木公園のあの蕎麦屋", priority: .someday),
+            WishPick(id: 1, title: "海でBBQ", meta: "湘南"),
+            WishPick(id: 2, title: "オーロラ", meta: ""),
+            WishPick(id: 3, title: "代々木公園のあの蕎麦屋", meta: ""),
+            WishPick(id: 4, title: "ナイトプールに行く", meta: ""),
         ]
     )
 }
@@ -52,13 +53,17 @@ struct WishesProvider: TimelineProvider {
     }
 
     // Reads the shared store and runs the identical selection the app uses.
+    // Keeps the top few so the medium family can fill its space; the views prefix
+    // to what each size shows.
     private func currentEntry() -> WishEntry {
         let items = SharedStore.snapshot().items
         guard let s = TimingEngine.suggestion(items: items) else {
             return WishEntry(date: Date(), line: "", picks: [])
         }
-        let picks = s.picks.map { WishPick(id: $0.id, title: $0.title, priority: $0.priority) }
-        return WishEntry(date: Date(), line: s.line, picks: picks)
+        let picks = s.picks.prefix(4).map {
+            WishPick(id: $0.id, title: $0.title, meta: $0.meta)
+        }
+        return WishEntry(date: Date(), line: s.line, picks: Array(picks))
     }
 
     private static func nextRefresh(after date: Date) -> Date {

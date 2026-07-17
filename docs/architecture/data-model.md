@@ -64,8 +64,10 @@
 - `NotificationPlanner` … 特定アイテムを名指しするローカル `UNCalendarNotificationTrigger` 群。
 - `TimingSuggestion` / `TimingEngine.suggestion(items:)` … タイミング提案（[コアコンセプト§5③](../philosophy/01-コアコンセプト.md)）。
   今日の位置（年末＞週末[金-日]＞月初＞季節終わり＞季節中）からフレームを選び、開いている項目を
-  季節適合＋優先度で最大3件。`[BucketItem]` を受ける純関数 `TimingEngine`（季節適合スコアは `TimingEngine.nowScore`）に
-  抽出済みで、`AppStore.timingSuggestion()`（本体ホームバナー）と `WidgetExtension`（ホームウィジェット）が同一ロジックを共有。
+  季節適合＋優先度で並べた**全ランク一覧**を返す（表示側が prefix：本体バナー3件／ウィジェット1〜4件）。
+  **同スコアの項目は `Clock.dayOrdinal` で日替わりローテーション**（決定的＝同じ日は同じ順。強い1件は固定、同点だけが順番に）。
+  `[BucketItem]` を受ける純関数 `TimingEngine`（季節適合スコアは `TimingEngine.nowScore`）に抽出済みで、
+  `AppStore.timingSuggestion()`（本体ホームバナー）と `WidgetExtension`（ホームウィジェット）が同一ロジックを共有。
 - `Seed` … デモ/スクショ専用データ。**実ユーザーには出さない**（新規インストール = 空リスト）。
 
 ## テスト対象として価値が高いロジック

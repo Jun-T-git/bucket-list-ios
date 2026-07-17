@@ -290,6 +290,11 @@ enum Clock {
     static var nextMonth: Int { month == 12 ? 1 : month + 1 }
     static var nextSeason: Season { Season.of(month: nextMonth) }
 
+    // A whole-number day index that advances by 1 each calendar day. Used as a
+    // deterministic seed so tied suggestions can take turns day by day without
+    // ever being truly random (stable within a day, reproducible in tests).
+    static var dayOrdinal: Int { calendar.ordinality(of: .day, in: .era, for: today) ?? 0 }
+
     // Timing-frame cues (concept §5-③: 金曜→今週末, 月初→今月, 年末→今年).
     static var isWeekendish: Bool { weekday == 6 || weekday == 7 || weekday == 1 } // Fri/Sat/Sun
     static var isMonthStart: Bool { day <= 7 }
@@ -1818,7 +1823,10 @@ enum NotificationPlanner {
 
 struct TimingSuggestion {
     let line: String          // the nudge, e.g. "今週末におすすめ"
-    let picks: [BucketItem]   // max 3, best match first
+    // The full ranked list of items that fit now, best match first. Each surface
+    // decides how many to show (home banner: 3, widget: 1–4). Items sharing the
+    // same score are rotated by the day so the set gently changes daily.
+    let picks: [BucketItem]
 }
 
 extension AppStore {
@@ -1856,16 +1864,39 @@ enum TimingEngine {
         func score(_ it: BucketItem) -> Double {
             nowScore(it, season: currentSeason) + Double(it.priority.weight)
         }
-        let picks = items
+        // Group items by score (×10 rounded to an Int key so float sums like 0.4
+        // group cleanly). A clear best stays put; only genuine ties take turns.
+        func scoreKey(_ it: BucketItem) -> Int { Int((score(it) * 10).rounded()) }
+
+        let ranked = items
             .filter { !$0.done && nowScore($0, season: currentSeason) > 0 }
             .sorted { a, b in
-                let sa = score(a), sb = score(b)
-                if sa != sb { return sa > sb }
-                return a.id > b.id
+                let ka = scoreKey(a), kb = scoreKey(b)
+                if ka != kb { return ka > kb }
+                return a.id > b.id      // canonical, stable within a score tier
             }
-            .prefix(3)
-        guard !picks.isEmpty else { return nil }
-        return TimingSuggestion(line: frameLine(), picks: Array(picks))
+        guard !ranked.isEmpty else { return nil }
+
+        // Rotate each equal-score run by the day so tied items rotate through the
+        // visible slots — deterministic (same day → same order), never random.
+        let seed = Clock.dayOrdinal
+        var picks: [BucketItem] = []
+        var i = 0
+        while i < ranked.count {
+            var j = i
+            let key = scoreKey(ranked[i])
+            while j < ranked.count && scoreKey(ranked[j]) == key { j += 1 }
+            picks.append(contentsOf: rotate(Array(ranked[i..<j]), by: seed))
+            i = j
+        }
+        return TimingSuggestion(line: frameLine(), picks: picks)
+    }
+
+    // Left-rotate by `seed` positions (wrapping). A 1-element run is unchanged.
+    private static func rotate(_ run: [BucketItem], by seed: Int) -> [BucketItem] {
+        guard run.count > 1 else { return run }
+        let k = ((seed % run.count) + run.count) % run.count
+        return Array(run[k...] + run[..<k])
     }
 
     // Frames in scarcity order: year-end > weekend > month-start > season-close.
