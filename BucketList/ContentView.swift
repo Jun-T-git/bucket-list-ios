@@ -6,6 +6,9 @@ struct ContentView: View {
     @State private var addOpen = false
     @State private var editingItem: BucketItem? = nil
     @State private var openItem: BucketItem? = nil
+    // A widget deep link that arrived while an edit sheet was open — applied once
+    // that sheet closes, so unsaved edits are never dropped without a confirm.
+    @State private var pendingOpenID: Int? = nil
     @State private var optionsOpen = false
     @State private var doneSheetOpen = false
     @State private var attrSheetOpen = false
@@ -96,6 +99,28 @@ struct ContentView: View {
                 .zIndex(100)
             }
         }
+        .onOpenURL { url in
+            // A tap on the home / Lock Screen widget lands here (wishes://item/<id>).
+            // Surface the exact wish the widget was showing so the nudge leads
+            // straight to a glance — the shortest path toward "やった".
+            guard let id = WishLink.itemID(from: url) else { return }
+            // Never clobber an in-progress edit: AddEditSheet guards unsaved
+            // changes with a discard confirm (§6), but a programmatic dismiss
+            // would bypass it and silently drop the user's text. Defer the jump
+            // until the edit sheet is closed on the user's own terms.
+            if addOpen {
+                pendingOpenID = id
+            } else {
+                presentItem(id: id)
+            }
+        }
+        .onChange(of: addOpen) { _, isOpen in
+            // The edit sheet just closed (saved or discarded via its own confirm)
+            // — now honor a widget tap that arrived while it was open.
+            guard !isOpen, let id = pendingOpenID else { return }
+            pendingOpenID = nil
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { presentItem(id: id) }
+        }
         .onAppear {
             // Screenshot mode: open the requested capture screen.
             if Screenshots.screen == "add" { addOpen = true }
@@ -175,6 +200,15 @@ struct ContentView: View {
             ScreenshotFormMock(kind: kind).environmentObject(store)
         }
         #endif
+    }
+
+    // Opens the wish a widget tap named. A glance (DetailSheet) is a safe swap —
+    // it holds no unsaved edits — so any open detail/options is replaced cleanly.
+    private func presentItem(id: Int) {
+        guard let item = store.items.first(where: { $0.id == id }) else { return }
+        store.selectedTab = .home
+        optionsOpen = false
+        openItem = item
     }
 
     private var backgroundWash: some View {

@@ -5,19 +5,44 @@ import SwiftUI
 // Titles are shown verbatim — already 体言止め, no verbs added (原則§7). Priority
 // is intentionally NOT shown — it isn't what the user cares about here, and
 // leading with it would read as a task manager (コアコンセプト§6). Small = one
-// wish with its context; Medium = a short list of what fits now.
+// wish with its context; Medium = a couple of wishes that fit now, each with its
+// context; Lock Screen (accessory) = the single top wish. Every surface deep-
+// links to the exact wish it shows (WishLink), so a tap leads straight to a
+// glance — the shortest path toward "やった".
 
 struct WishesWidgetView: View {
     @Environment(\.widgetFamily) private var family
     let entry: WishEntry
 
     var body: some View {
-        if entry.picks.isEmpty {
-            EmptyStateView()
-        } else if family == .systemSmall {
-            SmallView(line: entry.line, pick: entry.picks[0])
-        } else {
-            MediumView(line: entry.line, picks: Array(entry.picks.prefix(4)))
+        content
+            .containerBackground(for: .widget) {
+                switch family {
+                case .accessoryRectangular, .accessoryInline, .accessoryCircular:
+                    // The Lock Screen renders accessory widgets with its own
+                    // vibrant material — don't paint over it.
+                    Color.clear
+                default:
+                    Theme.Color.paper0
+                }
+            }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch family {
+        case .accessoryRectangular:
+            AccessoryRectView(line: entry.line, pick: entry.picks.first)
+        case .accessoryInline:
+            AccessoryInlineView(pick: entry.picks.first)
+        default:
+            if entry.picks.isEmpty {
+                EmptyStateView()
+            } else if family == .systemSmall {
+                SmallView(line: entry.line, pick: entry.picks[0])
+            } else {
+                MediumView(line: entry.line, picks: Array(entry.picks.prefix(3)))
+            }
         }
     }
 }
@@ -47,37 +72,104 @@ private struct SmallView: View {
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        // Whole tile opens the wish it shows.
+        .widgetURL(WishLink.url(id: pick.id))
     }
 }
 
-// MARK: - Medium — a short list of what fits now
+// MARK: - Medium — a couple of wishes that fit now, each with its context
 
 private struct MediumView: View {
     let line: String
     let picks: [WishPick]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
+        VStack(alignment: .leading, spacing: 10) {
             FrameLine(line)
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 10) {
                 ForEach(picks) { pick in
-                    HStack(spacing: 8) {
-                        // A small green dot keeps the single-hue accent and gives
-                        // the list quiet structure — no priority, no color coding.
-                        Circle()
-                            .fill(Theme.Color.green500)
-                            .frame(width: 5, height: 5)
-                        Text(pick.title)
-                            .font(Theme.Font.sans(14.5, weight: .semibold))
-                            .foregroundColor(Theme.Color.ink0)
-                            .lineLimit(1)
-                        Spacer(minLength: 0)
+                    // Each row deep-links to its own wish (Link, not widgetURL,
+                    // so the medium family can route per row).
+                    Link(destination: WishLink.url(id: pick.id)) {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            // A small green dot keeps the single-hue accent and
+                            // gives the list quiet structure — no priority, no
+                            // color coding.
+                            Circle()
+                                .fill(Theme.Color.green500)
+                                .frame(width: 5, height: 5)
+                                .padding(.top, 5)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(pick.title)
+                                    .font(Theme.Font.sans(15, weight: .semibold))
+                                    .foregroundColor(Theme.Color.ink0)
+                                    .lineLimit(1)
+                                if !pick.meta.isEmpty {
+                                    Text(pick.meta)
+                                        .font(Theme.Font.sans(11.5, weight: .regular))
+                                        .foregroundColor(Theme.Color.ink2)
+                                        .lineLimit(1)
+                                }
+                            }
+                            Spacer(minLength: 0)
+                        }
                     }
                 }
             }
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+}
+
+// MARK: - Lock Screen (accessory)
+
+// Rectangular slot: the frame line + the single top wish and its context.
+// Colors are ignored here (the system tints accessory widgets), so this leans
+// on system fonts and the vibrant rendering — plain / familiar (原則§1).
+private struct AccessoryRectView: View {
+    let line: String
+    let pick: WishPick?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            if let pick {
+                Text(line.isEmpty ? "そっと、いつか" : line)
+                    .font(.caption2).fontWeight(.semibold)
+                    .widgetAccentable()
+                Text(pick.title)
+                    .font(.headline)
+                    .lineLimit(pick.meta.isEmpty ? 2 : 1)
+                if !pick.meta.isEmpty {
+                    Text(pick.meta)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            } else {
+                Text("いつかを、ここに")
+                    .font(.headline).widgetAccentable()
+                Text("＋ から追加")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .widgetURL(pick.map { WishLink.url(id: $0.id) })
+    }
+}
+
+// Inline slot (beside the clock): one short line. Tapping opens the app.
+private struct AccessoryInlineView: View {
+    let pick: WishPick?
+
+    var body: some View {
+        if let pick {
+            // A calm bookmark — "saved for someday" — not キラキラ (原則§1).
+            Label(pick.title, systemImage: "bookmark")
+                .widgetURL(WishLink.url(id: pick.id))
+        } else {
+            Label("いつかを追加", systemImage: "plus")
+        }
     }
 }
 

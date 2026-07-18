@@ -303,6 +303,26 @@ enum Clock {
     static var isSeasonClosing: Bool { Season.of(month: nextMonth) != season }
 }
 
+// MARK: - WishLink
+// The single definition of the widget→app deep link. The home-screen widget
+// tags each pick with `WishLink.url(id:)`; tapping activates the app, which
+// resolves it back via `WishLink.itemID(from:)` and opens that very wish.
+// Shared by both targets so the format can never drift. A missing/registered
+// URL scheme isn't required — WidgetKit routes a widget's own URL to its
+// containing app; if it ever fails to resolve, the app simply opens as before.
+
+enum WishLink {
+    static let scheme = "wishes"
+    static let itemHost = "item"
+
+    static func url(id: Int) -> URL { URL(string: "\(scheme)://\(itemHost)/\(id)")! }
+
+    static func itemID(from url: URL) -> Int? {
+        guard url.scheme == scheme, url.host == itemHost else { return nil }
+        return Int(url.lastPathComponent)
+    }
+}
+
 // MARK: - Seed
 // Same 11 items used in the prototype, restated with native types.
 

@@ -80,12 +80,13 @@ struct WishesWidget: Widget {
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: WishesProvider()) { entry in
+            // The background adapts per family: paper on the home screen, clear on
+            // the Lock Screen where WidgetKit supplies the vibrant accessory look.
             WishesWidgetView(entry: entry)
-                .containerBackground(Theme.Color.paper0, for: .widget)
         }
         .configurationDisplayName("そっと、いつか")
-        .description("今やれる「いつか」を、ホーム画面でそっと差し出します。")
-        .supportedFamilies([.systemSmall, .systemMedium])
+        .description("今やれる「いつか」を、ホーム画面やロック画面でそっと差し出します。")
+        .supportedFamilies([.systemSmall, .systemMedium, .accessoryRectangular, .accessoryInline])
     }
 }
 
