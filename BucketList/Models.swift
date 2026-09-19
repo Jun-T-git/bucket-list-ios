@@ -288,7 +288,6 @@ enum Clock {
     static var weekday: Int { calendar.component(.weekday, from: today) }
     static var season: Season { Season.of(month: month) }
     static var nextMonth: Int { month == 12 ? 1 : month + 1 }
-    static var nextSeason: Season { Season.of(month: nextMonth) }
 
     // A whole-number day index that advances by 1 each calendar day. Used as a
     // deterministic seed so tied suggestions can take turns day by day without
@@ -1717,11 +1716,30 @@ enum Classifier {
 // ambush on first launch.
 
 enum NotificationPlanner {
-    private static let ids = [
-        "nudge.season.spring", "nudge.season.summer",
-        "nudge.season.fall", "nudge.season.winter",
-        "nudge.weekend", "nudge.monthEnd",
-    ]
+    // One scheduled nudge, resolved to its concrete fire date and copy. Plain
+    // data so the plan is unit-testable without UNUserNotificationCenter.
+    struct Nudge: Equatable {
+        let id: String
+        let title: String
+        let body: String
+        let fireDate: Date
+    }
+
+    // How far ahead the recurring nudges are laid out. Each occurrence is its
+    // own dated one-shot (not a repeating trigger) so every delivery can name a
+    // different item. 24 + 12 + 4 seasons = 40 pending, under iOS's cap of 64;
+    // sync() re-lays the window on every launch / foreground.
+    static let weekendSlots = 24
+    static let monthEndSlots = 12
+
+    private static var ids: [String] {
+        // Pre-rotation builds scheduled a single repeating request per kind.
+        let legacy = ["nudge.weekend", "nudge.monthEnd"]
+        return legacy
+            + Season.order.map { "nudge.season.\($0.rawValue)" }
+            + (0..<weekendSlots).map { "nudge.weekend.\($0)" }
+            + (0..<monthEndSlots).map { "nudge.monthEnd.\($0)" }
+    }
 
     static func sync(tweaks: Tweaks,
                      items: [BucketItem] = [],
@@ -1730,30 +1748,7 @@ enum NotificationPlanner {
         let center = UNUserNotificationCenter.current()
         center.removePendingNotificationRequests(withIdentifiers: ids)
 
-        var requests: [UNNotificationRequest] = []
-        if tweaks.seasonNudge {
-            for season in Season.order {
-                let (title, body) = seasonCopy(season, items: items)
-                var date = DateComponents()
-                date.month = season.months[0]; date.day = 1; date.hour = 9
-                requests.append(request(id: "nudge.season.\(season.rawValue)",
-                                        title: title, body: body, date: date))
-            }
-        }
-        if tweaks.weekendNudge {
-            var date = DateComponents()
-            date.weekday = 6; date.hour = 17   // Friday evening
-            let (title, body) = weekendCopy(items: items)
-            requests.append(request(id: "nudge.weekend",
-                                    title: title, body: body, date: date))
-        }
-        if tweaks.monthEndNudge {
-            var date = DateComponents()
-            date.day = 25; date.hour = 19
-            let (title, body) = monthEndCopy(items: items)
-            requests.append(request(id: "nudge.monthEnd",
-                                    title: title, body: body, date: date))
-        }
+        let requests = plan(tweaks: tweaks, items: items).map(request)
         guard !requests.isEmpty else { return }
 
         center.getNotificationSettings { settings in
@@ -1775,64 +1770,244 @@ enum NotificationPlanner {
         }
     }
 
+    // MARK: plan (pure)
+    // Every upcoming occurrence, each naming the item whose turn it is. The turn
+    // is derived from the fire date itself (week / month / year index), never
+    // from "n-th from now" — so re-planning on a later day keeps each date's
+    // pick, and consecutive deliveries walk through the list instead of
+    // repeating the same top item. Season fit is judged at the fire date, not
+    // at schedule time (a December Friday suggests winter items).
+
+    static func plan(tweaks: Tweaks, items: [BucketItem], now: Date = Clock.today) -> [Nudge] {
+        let cal = Clock.calendar
+        // One rotation per frame season (nil = all open items), built on first use.
+        var decks: [Season?: Rotation] = [:]
+        func pick(season: Season?, turn: Int) -> BucketItem? {
+            let d = decks[season] ?? Rotation(items, season: season)
+            decks[season] = d
+            return d.item(turn: turn)
+        }
+        // Weekend / month-end frames: what fits the season then, else anything
+        // open. With a single candidate there is nothing to rotate through, so
+        // it alternates with the generic copy rather than nagging about the one
+        // item on every delivery.
+        func pick(on date: Date, turn: Int) -> BucketItem? {
+            let season = Season.of(month: cal.component(.month, from: date))
+            let frame: Season? = pick(season: season, turn: turn) != nil ? season : nil
+            if decks[frame]?.ranked.count == 1, turn % 2 != 0 { return nil }
+            return pick(season: frame, turn: turn)
+        }
+
+        var out: [Nudge] = []
+        if tweaks.seasonNudge {
+            for season in Season.order {
+                var at = DateComponents()
+                at.month = season.months[0]; at.day = 1; at.hour = 9
+                guard let date = occurrences(of: at, after: now, count: 1).first else { continue }
+                let it = pick(season: season, turn: cal.component(.year, from: date))
+                let (title, body) = seasonCopy(season, item: it)
+                out.append(Nudge(id: "nudge.season.\(season.rawValue)",
+                                 title: title, body: body, fireDate: date))
+            }
+        }
+        if tweaks.weekendNudge {
+            var at = DateComponents()
+            at.weekday = 6; at.hour = 17   // Friday evening
+            for (i, date) in occurrences(of: at, after: now, count: weekendSlots).enumerated() {
+                // Fridays are exactly 7 days apart → consecutive week indices.
+                let week = (cal.ordinality(of: .day, in: .era, for: date) ?? 0) / 7
+                let (title, body) = weekendCopy(item: pick(on: date, turn: week))
+                out.append(Nudge(id: "nudge.weekend.\(i)",
+                                 title: title, body: body, fireDate: date))
+            }
+        }
+        if tweaks.monthEndNudge {
+            var at = DateComponents()
+            at.day = 25; at.hour = 19
+            for (i, date) in occurrences(of: at, after: now, count: monthEndSlots).enumerated() {
+                let month = cal.component(.year, from: date) * 12 + cal.component(.month, from: date)
+                let (title, body) = monthEndCopy(item: pick(on: date, turn: month))
+                out.append(Nudge(id: "nudge.monthEnd.\(i)",
+                                 title: title, body: body, fireDate: date))
+            }
+        }
+        return out
+    }
+
+    private static func occurrences(of comps: DateComponents, after now: Date, count: Int) -> [Date] {
+        var out: [Date] = []
+        var cursor = now
+        while out.count < count,
+              let next = Clock.calendar.nextDate(after: cursor, matching: comps,
+                                                 matchingPolicy: .nextTime) {
+            out.append(next)
+            cursor = next
+        }
+        return out
+    }
+
     // MARK: concrete, item-referencing copy
     // A nudge names a specific saved item so it reads as an action
     // ("この夏は「海でBBQ」、いかがですか？"), not a generic "確認しましょう".
     // The item is chosen at schedule time from the current list; sync() runs on
-    // every launch / foreground, so the pick stays in step with the list.
+    // every launch / foreground / background, so the picks stay in step with it.
 
-    private static func seasonCopy(_ season: Season, items: [BucketItem]) -> (String, String) {
+    private static func seasonCopy(_ season: Season, item: BucketItem?) -> (String, String) {
         let title = "\(season.ja)がやってきました"
-        if let it = pick(items, season: season) {
+        if let it = item {
             return (title, "この\(season.ja)は「\(it.title)」、いかがですか？")
         }
         return (title, "この\(season.ja)にやりたいこと、確認しませんか？")
     }
 
-    private static func weekendCopy(items: [BucketItem]) -> (String, String) {
+    private static func weekendCopy(item: BucketItem?) -> (String, String) {
         let title = "今週末はどう過ごす？"
-        if let it = pick(items, season: Clock.season) ?? pick(items, season: nil) {
+        if let it = item {
             return (title, "今週末は「\(it.title)」、いかがですか？")
         }
         return (title, "今週末にできること、確認しませんか？")
     }
 
-    private static func monthEndCopy(items: [BucketItem]) -> (String, String) {
+    private static func monthEndCopy(item: BucketItem?) -> (String, String) {
         let title = "今月もあと少し"
-        if let it = pick(items, season: Clock.season) ?? pick(items, season: nil) {
+        if let it = item {
             return (title, "今月のうちに「\(it.title)」、いかがですか？")
         }
         return (title, "今月のうちにやりたいこと、確認しませんか？")
     }
 
-    // Best still-open item for a frame: season-fit first (season or month tag),
-    // then priority, then most-recently added. `season: nil` ranks by priority
-    // across all open items.
-    private static func pick(_ items: [BucketItem], season: Season?) -> BucketItem? {
-        func fit(_ it: BucketItem) -> Int {
-            guard let season else { return 0 }
-            let tags = it.normalizedSeasons
-            if tags.contains(.season(season)) { return 2 }
-            return tags.contains(.any) ? 1 : 0
+    // The rotation for a frame: which of its still-open items is named on a
+    // given turn. Candidates are ranked season-fit first (season tag, then
+    // いつでも), then priority; `season: nil` takes all open items. Their slots
+    // are dealt by smooth weighted round-robin — weight = priority (高 3 : 中 2 :
+    // 低 1), +2 for a season match (the same bonus as TimingEngine.nowScore, so a
+    // wish that can only happen this season isn't crowded out by "いつでも" ones).
+    // Every fitting wish gets named; important / in-season ones come around
+    // more often, evenly spaced.
+    //
+    // Items of equal weight are interchangeable, so WHICH of them fills a slot
+    // is random — reshuffled every lap of the deck, so there is no fixed order
+    // to learn. The shuffle is seeded by the lap (itself derived from the fire
+    // date), never by a live RNG: re-planning on a later day keeps every date's
+    // pick, and the no-repeat guarantee holds across re-plans.
+    struct Rotation {
+        let ranked: [BucketItem]
+        private let weights: [Int]
+        private let slots: [Int]        // one lap, as indices into `ranked`
+
+        init(_ items: [BucketItem], season: Season?) {
+            func fit(_ it: BucketItem) -> Int {
+                guard let season else { return 0 }
+                let tags = it.normalizedSeasons
+                if tags.contains(.season(season)) { return 2 }
+                return tags.contains(.any) ? 1 : 0
+            }
+            let open = items.filter { !$0.done }
+            let pool = season == nil ? open : open.filter { fit($0) > 0 }
+            let weight = { (it: BucketItem) in it.priority.weight + (fit(it) == 2 ? 2 : 0) }
+            ranked = pool.sorted { a, b in
+                let wa = weight(a), wb = weight(b)
+                if wa != wb { return wa > wb }
+                return a.id > b.id      // canonical base order; shuffled per lap
+            }
+            weights = ranked.map(weight)
+            guard ranked.count > 1 else {
+                slots = ranked.isEmpty ? [] : [0]
+                return
+            }
+            let total = weights.reduce(0, +)
+            var credit = [Int](repeating: 0, count: ranked.count)
+            var last: Int? = nil
+            var lap: [Int] = []
+            // Two laps: the first only settles the credits into their steady
+            // state, the second is recorded. Never the same item twice in a row
+            // — that is the very thing the rotation exists to avoid — so the
+            // previous pick sits each step out (which caps any one item at
+            // every other delivery).
+            for step in 0..<(total * 2) {
+                for i in credit.indices { credit[i] += weights[i] }
+                guard let i = credit.indices.filter({ $0 != last })
+                    .max(by: { credit[$0] < credit[$1] }) else { break }
+                credit[i] -= total
+                last = i
+                if step >= total { lap.append(i) }
+            }
+            // The lap is cyclic — its end must not meet its start with the same item.
+            if lap.count > 1, lap.last == lap.first { lap.removeLast() }
+            slots = lap
         }
-        let open = items.filter { !$0.done }
-        let pool = season == nil ? open : open.filter { fit($0) > 0 }
-        return pool.max { a, b in
-            let fa = fit(a), fb = fit(b)
-            if fa != fb { return fa < fb }
-            if a.priority.weight != b.priority.weight { return a.priority.weight < b.priority.weight }
-            return a.id < b.id
+
+        func item(turn: Int) -> BucketItem? {
+            guard !slots.isEmpty else { return nil }
+            let n = slots.count
+            let pos = ((turn % n) + n) % n
+            let lap = (turn - pos) / n
+            return ranked[casting(lap: lap)[slots[pos]]]
+        }
+
+        // Which item plays each rank index during `lap`: a seeded shuffle within
+        // every equal-weight group. Consecutive laps must not meet on the same
+        // item (last slot of one, first slot of the next), so a clash is fixed
+        // by re-casting the FIRST slot only — the last slot's cast stays exactly
+        // what the seed gave, which keeps each lap dependent on just the one
+        // before it (no unbounded chain back through history).
+        private func casting(lap: Int) -> [Int] {
+            var cast = seededCast(lap: lap)
+            guard let first = slots.first, let last = slots.last, slots.count > 1 else { return cast }
+            if seededCast(lap: lap - 1)[last] == cast[first],
+               let other = weights.indices.first(where: {
+                   weights[$0] == weights[first] && $0 != first && $0 != last
+               }) {
+                cast.swapAt(first, other)
+            }
+            return cast
+        }
+
+        private func seededCast(lap: Int) -> [Int] {
+            var cast = Array(ranked.indices)
+            guard let first = slots.first, let last = slots.last else { return cast }
+            var rng = SplitMix64(seed: UInt64(bitPattern: Int64(lap)))
+            var i = 0
+            while i < cast.count {
+                var j = i
+                while j < cast.count && weights[j] == weights[i] { j += 1 }
+                // A 2-item group that is both the lap's first and last slot has
+                // no third member to re-cast a clash with — it keeps its order.
+                let pinned = j - i == 2 && (i..<j).contains(first) && (i..<j).contains(last)
+                if j - i > 1 && !pinned {
+                    for k in stride(from: j - 1, to: i, by: -1) {   // Fisher–Yates
+                        cast.swapAt(k, i + Int(rng.next() % UInt64(k - i + 1)))
+                    }
+                }
+                i = j
+            }
+            return cast
         }
     }
 
-    private static func request(id: String, title: String, body: String,
-                                date: DateComponents) -> UNNotificationRequest {
+    // Tiny deterministic generator for the per-lap shuffle (same seed → same
+    // order on every device and every re-plan).
+    private struct SplitMix64 {
+        private var state: UInt64
+        init(seed: UInt64) { state = seed }
+        mutating func next() -> UInt64 {
+            state &+= 0x9E37_79B9_7F4A_7C15
+            var z = state
+            z = (z ^ (z >> 30)) &* 0xBF58_476D_1CE4_E5B9
+            z = (z ^ (z >> 27)) &* 0x94D0_49BB_1331_11EB
+            return z ^ (z >> 31)
+        }
+    }
+
+    private static func request(_ nudge: Nudge) -> UNNotificationRequest {
         let content = UNMutableNotificationContent()
-        content.title = title
-        content.body = body
+        content.title = nudge.title
+        content.body = nudge.body
         content.sound = .default
-        let trigger = UNCalendarNotificationTrigger(dateMatching: date, repeats: true)
-        return UNNotificationRequest(identifier: id, content: content, trigger: trigger)
+        let date = Clock.calendar.dateComponents([.year, .month, .day, .hour, .minute],
+                                                 from: nudge.fireDate)
+        let trigger = UNCalendarNotificationTrigger(dateMatching: date, repeats: false)
+        return UNNotificationRequest(identifier: nudge.id, content: content, trigger: trigger)
     }
 }
 

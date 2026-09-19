@@ -78,23 +78,7 @@ extension AppStore {
             : 0
         let gap = targetPace - currentPace
 
-        var pending: [Season: [BucketItem]] = [:]
-        for s in Season.order { pending[s] = [] }
-        for it in items where !it.done {
-            let tags = it.normalizedSeasons
-            var reached: Set<Season> = []
-            for t in tags {
-                if case .season(let s) = t { reached.insert(s) }
-            }
-            if reached.isEmpty {
-                reached.insert(Clock.season)
-                reached.insert(Clock.nextSeason)
-            }
-            for s in reached { pending[s, default: []].append(it) }
-        }
-        for s in Season.order {
-            pending[s]?.sort { $0.priority.weight > $1.priority.weight }
-        }
+        let pending = SeasonPlan.pending(items: items, from: Clock.season)
 
         return ReportData(
             hist: hist, lifetime: lifetime, thisYearDone: thisYearDone,
@@ -102,6 +86,57 @@ extension AppStore {
             currentPace: currentPace, projection: projection,
             targetPace: targetPace, gap: gap, pendingBySeason: pending
         )
+    }
+}
+
+// MARK: - SeasonPlan
+// 「これからの季節」の振り分け — a pure function over [BucketItem].
+// Season-tagged items sit in every season they name. "いつでも" items used to
+// all pile into the current season, which made "now" look overloaded and the
+// rest of the year empty; instead each is placed in exactly ONE upcoming
+// season: the counts are levelled across the four seasons (sparse seasons fill
+// first), then the items are handed out in priority order starting from now —
+// so a 高 "いつでも" wish still lands soon, and 低 ones drift later in the year.
+
+enum SeasonPlan {
+    static func pending(items: [BucketItem], from current: Season) -> [Season: [BucketItem]] {
+        var pending: [Season: [BucketItem]] = [:]
+        for s in Season.order { pending[s] = [] }
+        var anytime: [BucketItem] = []
+        for it in items where !it.done {
+            var reached: Set<Season> = []
+            for t in it.normalizedSeasons {
+                if case .season(let s) = t { reached.insert(s) }
+            }
+            if reached.isEmpty {
+                anytime.append(it)
+            } else {
+                for s in reached { pending[s, default: []].append(it) }
+            }
+        }
+
+        // Level the counts: each "いつでも" slot goes to the least-loaded season
+        // (ties → the nearer one).
+        let upcoming = Season.upcoming(from: current)
+        var load = upcoming.map { pending[$0]?.count ?? 0 }
+        var quota = [Int](repeating: 0, count: upcoming.count)
+        for _ in anytime {
+            guard let i = load.indices.min(by: { load[$0] < load[$1] }) else { break }
+            load[i] += 1
+            quota[i] += 1
+        }
+        // Hand the slots out nearest-season-first in priority order (the sort is
+        // stable, so equal priorities keep their list order).
+        var queue = anytime.sorted { $0.priority.weight > $1.priority.weight }[...]
+        for (i, s) in upcoming.enumerated() {
+            pending[s, default: []].append(contentsOf: queue.prefix(quota[i]))
+            queue = queue.dropFirst(quota[i])
+        }
+
+        for s in Season.order {
+            pending[s]?.sort { $0.priority.weight > $1.priority.weight }
+        }
+        return pending
     }
 }
 

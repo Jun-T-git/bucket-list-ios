@@ -47,6 +47,7 @@
 		B0F40012000000000000A004 /* ItemForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0F40010000000000000A004 /* ItemForm.swift */; };
 		B0F6000E000000000000A005 /* CoreModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0F6000C000000000000A005 /* CoreModelTests.swift */; };
 		B0F6000F000000000000A005 /* CaptureLogicTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0F6000D000000000000A005 /* CaptureLogicTests.swift */; };
+		B0F60011000000000000A005 /* NudgeAndSeasonPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0F60010000000000000A005 /* NudgeAndSeasonPlanTests.swift */; };
 		B0D10001000000000000A006 /* WishesWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D20001000000000000A006 /* WishesWidget.swift */; };
 		B0D10002000000000000A006 /* WishesWidgetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D20002000000000000A006 /* WishesWidgetViews.swift */; };
 		B0D10003000000000000A006 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0020004000000000000A001 /* Models.swift */; };
@@ -131,6 +132,7 @@
 		B0F6000A000000000000A005 /* BucketListTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BucketListTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B0F6000C000000000000A005 /* CoreModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreModelTests.swift; sourceTree = "<group>"; };
 		B0F6000D000000000000A005 /* CaptureLogicTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureLogicTests.swift; sourceTree = "<group>"; };
+		B0F60010000000000000A005 /* NudgeAndSeasonPlanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NudgeAndSeasonPlanTests.swift; sourceTree = "<group>"; };
 		B0D20001000000000000A006 /* WishesWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishesWidget.swift; sourceTree = "<group>"; };
 		B0D20002000000000000A006 /* WishesWidgetViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishesWidgetViews.swift; sourceTree = "<group>"; };
 		B0D20003000000000000A006 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -279,6 +281,7 @@
 			children = (
 				B0F6000C000000000000A005 /* CoreModelTests.swift */,
 				B0F6000D000000000000A005 /* CaptureLogicTests.swift */,
+				B0F60010000000000000A005 /* NudgeAndSeasonPlanTests.swift */,
 			);
 			path = BucketListTests;
 			sourceTree = "<group>";
@@ -495,6 +498,7 @@
 			files = (
 				B0F6000E000000000000A005 /* CoreModelTests.swift in Sources */,
 				B0F6000F000000000000A005 /* CaptureLogicTests.swift in Sources */,
+				B0F60011000000000000A005 /* NudgeAndSeasonPlanTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

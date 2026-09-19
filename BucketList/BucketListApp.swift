@@ -28,6 +28,11 @@ struct BucketListApp: App {
                     if phase == .active {
                         store.reload()
                         NotificationPlanner.sync(tweaks: store.tweaks, items: store.items)
+                    } else if phase == .background {
+                        // Nudges are laid out weeks ahead, each naming an item —
+                        // re-plan on the way out so one just marked "やった" (or
+                        // deleted) in this session is never suggested later.
+                        NotificationPlanner.sync(tweaks: store.tweaks, items: store.items)
                     }
                 }
         }

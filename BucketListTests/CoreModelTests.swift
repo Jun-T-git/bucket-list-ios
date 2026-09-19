@@ -83,6 +83,9 @@ struct BucketItemTests {
 // TimingEngine is the shared "適切なタイミングで差し出す" selection used by both the
 // in-app home banner (AppStore.timingSuggestion) and the home-screen widget. Lock
 // its behavior so the two surfaces can't silently diverge.
+// Serialized: withDate() pins the process-wide Clock.override, so these must not
+// interleave with each other (no other suite touches the override).
+@Suite(.serialized)
 struct TimingEngineTests {
     private func item(id: Int, _ priority: Priority, _ seasons: [SeasonTag],
                       done: Bool = false) -> BucketItem {

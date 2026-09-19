@@ -61,7 +61,21 @@
 - フィルタ/ソート拡張：`nowScore`・`seasonRank`・軸横断カウント `filterCounts`。
 - `Classifier` … タイトル入力中に優先度/季節/タグを即時下書きする**正規表現ベースのオフライン分類器**
   （コンパイル済み正規表現キャッシュあり）。設定の自動分類 OFF を尊重。
-- `NotificationPlanner` … 特定アイテムを名指しするローカル `UNCalendarNotificationTrigger` 群。
+- `NotificationPlanner` … 特定アイテムを名指しするローカル通知。純関数 `plan(tweaks:items:now:)` が
+  **日付つき単発（`repeats: false`）の `Nudge` 列**を作り、`sync()` が `UNCalendarNotificationTrigger` に変換する
+  （週末＝金曜17時×24週先／月末＝25日19時×12か月先／季節＝各季節初日9時の次回1件。計40件＜iOS上限64）。
+  **配信ごとに名指しする項目が変わる**（`NotificationPlanner.Rotation`）：
+  - 順番は発火日から決まる（週/月/年インデックス）。再計画しても各日付の項目は不変。
+  - 候補（その季節に合う未達成項目。無ければ全未達成）を、重み＝優先度 高3:中2:低1＋季節一致 +2
+    （`TimingEngine.nowScore` と同じ加点）の滑らかな重み付きラウンドロビンで巡回。同一項目は連続しない。
+  - **同じ重みの項目どうしはランダム順**。デッキ1周ごとにシャッフルし直す（固定の並びにならない）。
+    乱数は周回番号をシードにした決定的なもの（ライブ乱数ではない）ので、上の「日付ごとに不変」「連続なし」が再計画をまたいで保たれる。
+  - 候補が1件だけなら汎用文言と交互。季節適合は**発火日の季節**で判定。
+  `sync()` は起動／復帰／バックグラウンド移行／設定変更で窓を引き直す。
+  アプリを一度も開かないまま窓が尽きたら通知は止まる（意図的：無視され続けた通知を無期限に送り続けない）。
+- `SeasonPlan.pending(items:from:)`（`ReportView.swift`）… レポート「これからの季節」の振り分け（純関数）。
+  季節タグ付きは該当する全季節に載せ、**「いつでも」は今の季節に寄せず4季節のどれか1つへ**：件数が均されるよう
+  少ない季節から枠を配り、優先度の高いものほど近い季節に置く。
 - `TimingSuggestion` / `TimingEngine.suggestion(items:)` … タイミング提案（[コアコンセプト§5③](../philosophy/01-コアコンセプト.md)）。
   今日の位置（年末＞週末[金-日]＞月初＞季節終わり＞季節中）からフレームを選び、開いている項目を
   季節適合＋優先度で並べた**全ランク一覧**を返す（表示側が prefix：本体バナー3件／ウィジェット Small・accessory 1件、Medium 3件）。
@@ -73,6 +87,7 @@
 ## テスト対象として価値が高いロジック
 
 純粋関数的で UI に依存しないため、[テスト](../workflows/build-and-verify.md)の主対象：
-`Classifier` / `TimingEngine`（`Clock.override` で分岐）/ `SeasonTag.from(key:)`＋`normalizedSeasons` /
+`Classifier` / `TimingEngine`（`Clock.override` で分岐）/ `NotificationPlanner.plan` / `SeasonPlan.pending` /
+`SeasonTag.from(key:)`＋`normalizedSeasons` /
 filter・sort（`nowScore`/`seasonRank`/`filterCounts`）/ 寛容 `Codable`（`LossyArray`/`StoreLoad`）/
 `TagValidator`（[capture-pipeline](capture-pipeline.md)）。
