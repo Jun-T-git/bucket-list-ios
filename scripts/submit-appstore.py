@@ -6,7 +6,9 @@ TestFlight 配信（scripts/release-testflight.sh）でアップロード済み�
 
 使い方:
   scripts/submit-appstore.py status                       # バージョン/ビルドの状態を表示
+  scripts/submit-appstore.py withdraw                     # 審査待ち/審査中の提出を取り下げる（差し替え用）
   scripts/submit-appstore.py submit --notes notes.txt     # pbxproj の version/build を提出
+  scripts/submit-appstore.py submit --notes notes.txt --description desc.txt   # 説明文も差し替え
   scripts/submit-appstore.py submit --notes notes.txt --version 1.1.0 --build 9
   scripts/submit-appstore.py submit --notes notes.txt --dry-run   # 提出手前まで（提出はしない）
   scripts/submit-appstore.py submit --notes notes.txt --release MANUAL   # 承認後に手動公開
@@ -21,7 +23,8 @@ TestFlight 配信（scripts/release-testflight.sh）でアップロード済み�
 よくある失敗と対処:
   - "build N is still PROCESSING" → アップロード直後。--wait で処理完了まで待つ（既定 ON、最大30分）。
   - "version X is READY_FOR_DISTRIBUTION" → そのバージョンは公開済み。release-testflight.sh --version で上げて再配信。
-  - "version X is WAITING_FOR_REVIEW / IN_REVIEW" → 提出済み。差し替えるなら ASC で提出を取り下げてから。
+  - "version X is WAITING_FOR_REVIEW / IN_REVIEW" → 提出済み。差し替えるなら `withdraw` で取り下げてから
+    （取り下げ後は DEVELOPER_REJECTED になり、同じバージョン番号で再提出できる）。
   - 401 → キーの失効/権限不足。ASC → ユーザとアクセス → 統合 → App Store Connect API で確認。
 """
 import argparse
@@ -133,6 +136,23 @@ def cmd_status(_):
         print(f"  build {a['version']:4} train {train:8} {a['processingState']:10} uploaded={a['uploadedDate'][:10]}")
 
 
+def cmd_withdraw(_):
+    # 審査待ち/審査中の提出を取り下げる。バージョンは DEVELOPER_REJECTED に戻り、
+    # 同じ番号のまま新しいビルドを紐付けて再提出できる。
+    subs = call("GET", f"/reviewSubmissions?filter[app]={app_id()}"
+                       "&filter[state]=WAITING_FOR_REVIEW,IN_REVIEW,UNRESOLVED_ISSUES"
+                       "&fields[reviewSubmissions]=state,platform,submittedDate")["data"]
+    if not subs:
+        print("取り下げ対象の提出はありません（審査待ち/審査中なし）")
+        return
+    for s in subs:
+        a = s["attributes"]
+        call("PATCH", f"/reviewSubmissions/{s['id']}", {"data": {
+            "type": "reviewSubmissions", "id": s["id"], "attributes": {"canceled": True}}})
+        print(f"  取り下げ: submission {s['id']} ({a['state']}, submitted={str(a.get('submittedDate'))[:10]})")
+    print("✅ 提出を取り下げました。`status` で該当バージョンが DEVELOPER_REJECTED になっていれば再提出できます。")
+
+
 def wait_for_build(number, minutes):
     deadline = time.time() + minutes * 60
     while True:
@@ -183,11 +203,15 @@ def cmd_submit(a):
     ja = next((l for l in locs if l["attributes"]["locale"] == "ja"), None)
     if ja is None:
         sys.exit("ja ローカライズがありません（ASC で日本語のストア情報を作成してから再実行）")
+    attrs = {"whatsNew": notes}
+    if a.description:
+        # 説明文は前バージョンから複製されるので、変えたいときだけ上書きする。
+        attrs["description"] = open(a.description, encoding="utf-8").read().strip()
     call("PATCH", f"/appStoreVersionLocalizations/{ja['id']}", {"data": {
-        "type": "appStoreVersionLocalizations", "id": ja["id"], "attributes": {"whatsNew": notes}}})
+        "type": "appStoreVersionLocalizations", "id": ja["id"], "attributes": attrs}})
     call("PATCH", f"/appStoreVersions/{vid}/relationships/build",
          {"data": {"type": "builds", "id": b["id"]}})
-    print(f"  whatsNew 設定・build {build} 紐付け")
+    print(f"  whatsNew{'・description' if a.description else ''} 設定・build {build} 紐付け")
 
     if a.dry_run:
         print("==> 4/4 --dry-run のため提出しません（ASC 上は「提出準備完了」のまま）")
@@ -211,8 +235,10 @@ def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sp = p.add_subparsers(dest="cmd", required=True)
     sp.add_parser("status", help="バージョン/ビルドの状態").set_defaults(fn=cmd_status)
+    sp.add_parser("withdraw", help="審査待ち/審査中の提出を取り下げる").set_defaults(fn=cmd_withdraw)
     q = sp.add_parser("submit", help="審査に提出")
     q.add_argument("--notes", required=True, help="「このバージョンの新機能」テキストファイル (ja)")
+    q.add_argument("--description", help="説明文 (ja) を差し替えるテキストファイル。省略時は前バージョンの複製のまま")
     q.add_argument("--version", help="既定: pbxproj の MARKETING_VERSION")
     q.add_argument("--build", help="既定: pbxproj の CURRENT_PROJECT_VERSION")
     q.add_argument("--release", default="AFTER_APPROVAL", choices=["AFTER_APPROVAL", "MANUAL"],
