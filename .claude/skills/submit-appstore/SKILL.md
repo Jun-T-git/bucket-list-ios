@@ -26,7 +26,9 @@ description: Wishes(iOS) を App Store 審査に提出する（本番配信）�
    - ビルド処理中（PROCESSING）なら自動で待つ（最大30分）。
    - `version X is READY_FOR_DISTRIBUTION` → 公開済みトレイン。`/deploy-testflight` で
      `--version` を上げて再配信してから。
-   - `WAITING_FOR_REVIEW / IN_REVIEW` → 提出済み。差し替えは ASC で取り下げてから。
+   - `WAITING_FOR_REVIEW / IN_REVIEW` → 提出済み。差し替えは `scripts/submit-appstore.py withdraw` で取り下げてから
+     （同じバージョン番号のまま新ビルドで再提出できる。DEVELOPER_REJECTED に戻る）。
+   - 説明文も変えるときは `--description <desc.txt>`。ASC の説明文に罫線 `────` は使えない（空行で区切る）。
 4. **記録**：提出した文言を `docs/workflows/app-store-metadata.md` の「このバージョンの新機能」に
    バージョン見出しで追記し、コミットする（`ドキュメント: vX.Y.Z の新機能テキストを記録`）。
 5. **報告**：version/build・リリース方式・「審査は通常1〜3日、結果は ASC と連絡先メールに届く」を伝える。
