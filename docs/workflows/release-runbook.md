@@ -72,9 +72,32 @@ scripts/release-testflight.sh --version 1.0.2  # リリース済みトレイン�
 - 審査に出す場合は、対象バージョンの「ビルド」欄でアップロードしたビルドを選択。
 
 ## 7. 審査へ提出
+
+**推奨: スクリプトで一括**（バージョン作成→新機能テキスト→ビルド紐付け→審査提出。スキル `/submit-appstore` でも同じ）:
+
+```sh
+scripts/submit-appstore.py status                    # バージョン/ビルドの状態
+scripts/submit-appstore.py submit --notes notes.txt  # pbxproj の version/build を提出（承認後に自動公開）
+scripts/submit-appstore.py submit --notes notes.txt --release MANUAL   # 承認後に手動で公開する場合
+```
+
+- `notes.txt` は「このバージョンの新機能」（日本語・「・」箇条書き）。提出した文言は
+  `app-store-metadata.md` の同節にバージョンごとに記録する。
+- 新バージョンの作成時、説明文・キーワード・スクショ等の ja ストア情報は前バージョンから ASC が複製する。
+  変えたいときは提出前に ASC で編集（または `--dry-run` で手前まで作ってから ASC で編集→提出）。
+- 前提: `scripts/asc.env`（gitignore。雛形 `asc.env.example`）に Issuer ID / Key ID / App ID、
+  `~/.appstoreconnect/private_keys/AuthKey_<KEY_ID>.p8` に API キー（ASC → ユーザとアクセス → 統合）、`pip3 install pyjwt`。
+- 公開済みトレイン（`READY_FOR_DISTRIBUTION`）には提出できない → §6 で `--version` を上げて再配信。
+
+<details><summary>手動（ASC GUI）の場合</summary>
+
 - **App Review 情報**（連絡先・審査メモ）を `app-store-metadata.md` から記入。
 - 輸出コンプライアンス: 「非対象暗号のみ使用」=はい（`ITSAppUsesNonExemptEncryption=NO` 設定済みなので追加質問は出ない想定）。
-- **「審査へ提出」**。あとは Apple の審査（通常1〜3日程度）。
+- 対象バージョンの「ビルド」欄でアップロードしたビルドを選択し、**「審査へ提出」**。
+
+</details>
+
+あとは Apple の審査（通常1〜3日程度）。結果は ASC の App Review と連絡先メールに届く。
 
 ---
 

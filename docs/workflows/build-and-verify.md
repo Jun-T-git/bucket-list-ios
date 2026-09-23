@@ -81,3 +81,5 @@ UI・哲学は視覚依存（[設計原則§1–3](../philosophy/02-設計原則
   署名不要（シミュレータのみ）なのでシークレット設定は不要。
 - **TestFlight 配信**：`scripts/release-testflight.sh`（スキル `/deploy-testflight`）。
   手順の全体は [release-runbook.md](release-runbook.md#6-ビルドをアップロード)。
+- **App Store 審査提出（本番）**：`scripts/submit-appstore.py`（スキル `/submit-appstore`）。
+  [release-runbook.md §7](release-runbook.md#7-審査へ提出)。
