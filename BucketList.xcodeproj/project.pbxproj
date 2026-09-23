@@ -54,6 +54,12 @@
 		B0D10004000000000000A006 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0020003000000000000A001 /* Theme.swift */; };
 		B0D10005000000000000A006 /* WidgetExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = B0D20005000000000000A006 /* WidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		B0D10006000000000000A006 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B0D20007000000000000A006 /* PrivacyInfo.xcprivacy */; };
+		B0AB0001000000000000A007 /* Analytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0AB0011000000000000A007 /* Analytics.swift */; };
+		B0AB0002000000000000A007 /* Analytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0AB0011000000000000A007 /* Analytics.swift */; };
+		B0AB0003000000000000A007 /* Analytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0AB0011000000000000A007 /* Analytics.swift */; };
+		B0AB0004000000000000A007 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = B0AB0012000000000000A007 /* GoogleService-Info.plist */; };
+		B0AB0005000000000000A007 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = B0AB0021000000000000A007 /* FirebaseAnalytics */; };
+		B0AB0006000000000000A007 /* AnalyticsLogicTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0AB0013000000000000A007 /* AnalyticsLogicTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -139,6 +145,10 @@
 		B0D20004000000000000A006 /* WidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = WidgetExtension.entitlements; sourceTree = "<group>"; };
 		B0D20005000000000000A006 /* WidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = WidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		B0D20007000000000000A006 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		B0AB0011000000000000A007 /* Analytics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Analytics.swift; sourceTree = "<group>"; };
+		B0AB0012000000000000A007 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		B0AB0013000000000000A007 /* AnalyticsLogicTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsLogicTests.swift; sourceTree = "<group>"; };
+		B0AB0014000000000000A007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -146,6 +156,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B0AB0005000000000000A007 /* FirebaseAnalytics in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -204,8 +215,11 @@
 				B0F40010000000000000A004 /* ItemForm.swift */,
 				B0020011000000000000A001 /* ProStore.swift */,
 				B0020012000000000000A001 /* PaywallView.swift */,
+				B0AB0011000000000000A007 /* Analytics.swift */,
 				B0E20006000000000000A002 /* BucketList.entitlements */,
 				B0020010000000000000A001 /* PrivacyInfo.xcprivacy */,
+				B0AB0014000000000000A007 /* Info.plist */,
+				B0AB0012000000000000A007 /* GoogleService-Info.plist */,
 				B0F50001000000000000A003 /* Capture */,
 				B0050004000000000000A001 /* Resources */,
 			);
@@ -282,6 +296,7 @@
 				B0F6000C000000000000A005 /* CoreModelTests.swift */,
 				B0F6000D000000000000A005 /* CaptureLogicTests.swift */,
 				B0F60010000000000000A005 /* NudgeAndSeasonPlanTests.swift */,
+				B0AB0013000000000000A007 /* AnalyticsLogicTests.swift */,
 			);
 			path = BucketListTests;
 			sourceTree = "<group>";
@@ -305,6 +320,9 @@
 				B0D90001000000000000A006 /* PBXTargetDependency */,
 			);
 			name = BucketList;
+			packageProductDependencies = (
+				B0AB0021000000000000A007 /* FirebaseAnalytics */,
+			);
 			productName = BucketList;
 			productReference = B0030001000000000000A001 /* Wishes.app */;
 			productType = "com.apple.product-type.application";
@@ -396,6 +414,9 @@
 				ja,
 			);
 			mainGroup = B0050001000000000000A001;
+			packageReferences = (
+				B0AB0020000000000000A007 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
 			productRefGroup = B0050003000000000000A001 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -416,6 +437,7 @@
 				B001000D000000000000A001 /* Preview Assets.xcassets in Resources */,
 				B001000C000000000000A001 /* Assets.xcassets in Resources */,
 				B0010010000000000000A001 /* PrivacyInfo.xcprivacy in Resources */,
+				B0AB0004000000000000A007 /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -471,6 +493,7 @@
 				B0F40011000000000000A004 /* ItemForm.swift in Sources */,
 				B0010011000000000000A001 /* ProStore.swift in Sources */,
 				B0010012000000000000A001 /* PaywallView.swift in Sources */,
+				B0AB0001000000000000A007 /* Analytics.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -489,6 +512,7 @@
 				B0F30005000000000000A003 /* RuleBasedCandidate.swift in Sources */,
 				B0F40003000000000000A004 /* SelectAllTextField.swift in Sources */,
 				B0F40012000000000000A004 /* ItemForm.swift in Sources */,
+				B0AB0002000000000000A007 /* Analytics.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -499,6 +523,7 @@
 				B0F6000E000000000000A005 /* CoreModelTests.swift in Sources */,
 				B0F6000F000000000000A005 /* CaptureLogicTests.swift in Sources */,
 				B0F60011000000000000A005 /* NudgeAndSeasonPlanTests.swift in Sources */,
+				B0AB0006000000000000A007 /* AnalyticsLogicTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -510,6 +535,7 @@
 				B0D10002000000000000A006 /* WishesWidgetViews.swift in Sources */,
 				B0D10003000000000000A006 /* Models.swift in Sources */,
 				B0D10004000000000000A006 /* Theme.swift in Sources */,
+				B0AB0003000000000000A007 /* Analytics.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -665,6 +691,7 @@
 				DEVELOPMENT_TEAM = JD7L34U2WS;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = BucketList/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Wishes;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
@@ -680,11 +707,13 @@
 				);
 				MARKETING_VERSION = 1.1.0;
 				OTHER_LDFLAGS = (
+					"-ObjC",
 					"-weak_framework",
 					FoundationModels,
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = teratech.BucketList;
 				PRODUCT_NAME = Wishes;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "ANALYTICS_FIREBASE $(inherited)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -703,6 +732,7 @@
 				DEVELOPMENT_TEAM = JD7L34U2WS;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = BucketList/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Wishes;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
@@ -718,11 +748,13 @@
 				);
 				MARKETING_VERSION = 1.1.0;
 				OTHER_LDFLAGS = (
+					"-ObjC",
 					"-weak_framework",
 					FoundationModels,
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = teratech.BucketList;
 				PRODUCT_NAME = Wishes;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "ANALYTICS_FIREBASE $(inherited)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -924,6 +956,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		B0AB0020000000000000A007 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.19.2;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B0AB0021000000000000A007 /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B0AB0020000000000000A007 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = B00A0001000000000000A001 /* Project object */;
 }

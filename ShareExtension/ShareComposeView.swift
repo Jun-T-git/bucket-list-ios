@@ -153,6 +153,7 @@ struct ShareComposeView: View {
         guard URLSafety.looksLikeWebURL(raw) else {
             genTask?.cancel()
             urlState = .invalidFormat; isGenerating = false
+            Analytics.captureResult("invalid", source: "share")
             return
         }
         // 自動分類オフ時は AI 補完を行わない。手入力の下書きのまま保存できる状態にする。
@@ -194,6 +195,7 @@ struct ShareComposeView: View {
                         Storage.consumeFreeCapture()
                         applyAI(c)       // auto-adopt: fills only untouched fields
                         urlState = .ok
+                        Analytics.captureResult("ok", source: "share")
                     } else if c.readable {
                         // Read the link but couldn't confidently name it. Don't drop
                         // a placeholder ("この商品" 等) into the title — clear the
@@ -201,9 +203,11 @@ struct ShareComposeView: View {
                         // enter it. No free import is spent for a non-result.
                         if !touched.contains(.title) { title = "" }
                         urlState = .lowConfidence
+                        Analytics.captureResult("low_confidence", source: "share")
                     } else {
                         // Couldn't read at all — keep the keyword draft, just warn.
                         urlState = .failed
+                        Analytics.captureResult("failed", source: "share")
                     }
                 }
             }
@@ -293,6 +297,14 @@ struct ShareComposeView: View {
         }
         // Only dismiss the share sheet as "saved" when the write actually
         // succeeded; otherwise warn instead of losing the item silently.
-        if ok { onSave() } else { saveError = true }
+        if ok {
+            // Queued in the App Group; the host app sends it on next foreground.
+            Analytics.itemAdded(priority: priority, seasons: seasons, tagCount: tags.count,
+                                hasURL: savedURL != nil, source: "share",
+                                fromCapture: urlState == .ok)
+            onSave()
+        } else {
+            saveError = true
+        }
     }
 }

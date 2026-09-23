@@ -104,6 +104,7 @@ struct ContentView: View {
             // Surface the exact wish the widget was showing so the nudge leads
             // straight to a glance — the shortest path toward "やった".
             guard let id = WishLink.itemID(from: url) else { return }
+            Analytics.track(.widgetTap)
             // Never clobber an in-progress edit: AddEditSheet guards unsaved
             // changes with a discard confirm (§6), but a programmatic dismiss
             // would bypass it and silently drop the user's text. Defer the jump
@@ -115,11 +116,18 @@ struct ContentView: View {
             }
         }
         .onChange(of: addOpen) { _, isOpen in
+            if isOpen { Analytics.screen(editingItem == nil ? "add" : "edit") }
             // The edit sheet just closed (saved or discarded via its own confirm)
             // — now honor a widget tap that arrived while it was open.
             guard !isOpen, let id = pendingOpenID else { return }
             pendingOpenID = nil
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { presentItem(id: id) }
+        }
+        .onChange(of: openItem?.id) { _, id in
+            if id != nil { Analytics.screen("detail") }
+        }
+        .onChange(of: optionsOpen) { _, isOpen in
+            if isOpen { Analytics.screen("filter") }
         }
         .onAppear {
             // Screenshot mode: open the requested capture screen.

@@ -65,6 +65,11 @@ struct SettingsView: View {
                               isOn: $store.tweaks.autoClassify)
                 }
 
+                SettingsGroup(title: "プライバシー") {
+                    toggleRow("利用状況の送信", sub: "改善のため匿名の利用統計だけを送信。書いた内容は送りません",
+                              isOn: $store.tweaks.analyticsEnabled)
+                }
+
                 SettingsGroup(title: "タグ") {
                     SettingsRow(label: "固定タグ",
                                 sub: "飲食・旅行・レジャー・お買い物") {

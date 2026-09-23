@@ -1,7 +1,9 @@
 import SwiftUI
+import UserNotifications
 
 @main
 struct BucketListApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var store = AppStore()
     @StateObject private var pro = ProStore()
     @Environment(\.scenePhase) private var scenePhase
@@ -28,6 +30,9 @@ struct BucketListApp: App {
                     if phase == .active {
                         store.reload()
                         NotificationPlanner.sync(tweaks: store.tweaks, items: store.items)
+                        // Engagement record + app_foreground, and ship whatever
+                        // the extensions queued while the app was away.
+                        Analytics.appDidBecomeActive(items: store.items)
                     } else if phase == .background {
                         // Nudges are laid out weeks ahead, each naming an item —
                         // re-plan on the way out so one just marked "やった" (or
@@ -36,5 +41,29 @@ struct BucketListApp: App {
                     }
                 }
         }
+    }
+}
+
+// MARK: - AppDelegate
+// The two UIKit hooks the SwiftUI lifecycle doesn't expose: starting the
+// analytics SDK before anything could log, and hearing about notification taps.
+
+final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    func application(_ application: UIApplication,
+                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        Analytics.start()
+        UNUserNotificationCenter.current().delegate = self
+        return true
+    }
+
+    // A nudge was tapped (the app launches or foregrounds as before — this only
+    // records which kind led the user back). Foreground presentation is left
+    // to the system default (not shown while the app is open), unchanged.
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+        let id = response.notification.request.identifier
+        Analytics.track(.nudgeOpen, ["kind": .string(Analytics.nudgeKind(fromIdentifier: id))])
+        completionHandler()
     }
 }

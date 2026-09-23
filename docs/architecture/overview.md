@@ -1,6 +1,6 @@
 # アーキテクチャ概観 — Wishes
 
-対象：iOS 17.0+ / SwiftUI / Swift 5.0 / Xcode 26。外部依存パッケージなし（SPM 未使用）。
+対象：iOS 17.0+ / SwiftUI / Swift 5.0 / Xcode 26。外部依存は SPM の `firebase-ios-sdk`（`FirebaseAnalytics`、本体ターゲットのみ）だけ。
 3ターゲット構成：本体アプリ（`BucketList`）＋共有拡張（`ShareExtension`）＋ホームウィジェット（`WidgetExtension`）。
 拡張2種はどちらも本体に Embed される app-extension。全 UI 日本語。約10k行。
 
@@ -62,11 +62,21 @@ App Group ID はコード内 `static let appGroupID = "group.teratech.BucketList
 - ストアの変更メソッドはローカルコピーを編集して一度だけ代入 → `items` 等の `didSet` が**1回だけ永続化**。
 - undo は変更メソッドに内蔵（`pendingUndo` バッファ＋アクション付きトースト。`remove` / `removeMany`）。
 
+## 計測（利用状況アナリティクス）
+
+入口は `BucketList/Analytics.swift` の `Analytics.track(.itemDone, …)` だけ（詳細・イベント語彙 → [analytics.md](analytics.md)）。
+発火点は主に `AppStore` の変更メソッド（達成/削除/一括/undo/設定）と `didSet`（タブ＝`screen_view`、filters/sort）、
+画面側は追加保存・取込結果・提案タップ・リンク開封・ウィジェット/通知タップ。
+Firebase をリンクするのは本体だけ（`ANALYTICS_FIREBASE`）。拡張は App Group の UserDefaults キューに積み、
+本体が `scenePhase == .active` の `Analytics.appDidBecomeActive` で送る。ユーザーの内容（タイトル/URL 等）は送らない。
+設定「利用状況の送信」（`Tweaks.analyticsEnabled`）で OFF にできる。DEBUG は送らない。
+
 ## 画面と主なファイル
 
 | ファイル | 役割 |
 |---------|------|
-| `BucketListApp.swift` | @main。起動時に `pro.start()`／通知同期、復帰時に `reload()` |
+| `BucketListApp.swift` | @main。起動時に `pro.start()`／通知同期、復帰時に `reload()`＋計測。`AppDelegate`（Firebase 起動・通知タップ受信） |
+| `Analytics.swift` | 利用状況計測の唯一の入口＋`Engagement`（連続日数）＋拡張→本体のイベントキュー（[analytics.md](analytics.md)） |
 | `ContentView.swift` | ルート。タブ切替・FAB・`CustomTabBar`・全シート・一括編集シート |
 | `HomeView.swift` | リストタブ（`InlineSuggestionBanner`＝タイミング提案、`CountStrip`、スワイプ行、空状態） |
 | `AddEditSheet.swift` | 追加/編集（共有 `ItemForm`。URL入力でプレビュー→「反映」で採用） |
@@ -89,3 +99,4 @@ App Group ID はコード内 `static let appGroupID = "group.teratech.BucketList
 3. モーダルなら：`ContentView` にローカル `@State` ＋ `.sheet`、ヘッダは `ScreenHeader`/`SheetHeader`。
 4. UI は **Theme トークン ＋ Components プリミティブ ＋ `FlowLayout`/チップ語彙** で組む（[設計原則](../philosophy/02-設計原則.md)）。
 5. 追加フォームが要るなら **`ItemForm` を再利用**（新規フォームを作らない。[設計原則§5](../philosophy/02-設計原則.md)）。
+6. 使われ方を知りたい操作には `Analytics.track(...)` を1行（語彙は `Analytics.Event`。内容文字列は送らない。[analytics.md](analytics.md)）。

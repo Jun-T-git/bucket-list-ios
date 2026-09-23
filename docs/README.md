@@ -53,6 +53,7 @@ docs/
 - **プロダクトの方針・非目標を変えた** → `philosophy/` と、対応する `decisions/`（ADR）を更新。
 - **データモデル/型/永続化を変えた** → `architecture/data-model.md`・`overview.md`。
 - **取り込みパイプラインを変えた** → `architecture/capture-pipeline.md`。
+- **計測イベント（`Analytics.swift`）を変えた** → `architecture/analytics.md`（語彙表）。送る種類が増えたら `index.html` §6 と App Privacy も。
 - **ビルド/検証手順を変えた** → `workflows/build-and-verify.md`（と `.claude/` の hooks/skills）。
 - **設計原則そのものを変える** → **必ず ADR を起票してから** `philosophy/02-設計原則.md` を変更。
 

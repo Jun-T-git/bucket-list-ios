@@ -5,7 +5,9 @@
 
 ## 前提
 
-- Xcode 26 / iOS 17.0 デプロイメントターゲット / Swift 5.0 / SPM 依存なし。
+- Xcode 26 / iOS 17.0 デプロイメントターゲット / Swift 5.0。SPM 依存は `firebase-ios-sdk`（本体のみ）。
+  **初回のシミュレータビルド／アーカイブはパッケージ取得で数分＋ネットワークが要る**（`Package.resolved` は
+  `BucketList.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/` に生成され、git 管理する）。
 - プロジェクト＝スキーム＝フォルダは `BucketList`、製品名は `Wishes`（[用語](../README.md#用語命名の整理)）。
 - 生成物は `.gitignore` 済みの `build/` か `/tmp` に出す（**repo を汚さない** ため `-derivedDataPath /tmp/...` 推奨）。
 
@@ -21,6 +23,10 @@ xcrun --sdk iphoneos swiftc -typecheck -sdk "$SDK" \
 
 > ⚠️ `BucketList/*.swift` だけだと `Capture/` 配下（`URLSafety` 等）を拾えず型解決に失敗する。
 > **必ず `$(find BucketList -name '*.swift')`** でモジュール全体を渡すこと。
+>
+> Firebase を import するのは `Analytics.swift` の `#if ANALYTICS_FIREBASE` ブロックだけ（このフラグは
+> Xcode の本体ターゲットでのみ定義）。この型チェックでは SDK なしの経路がコンパイルされるので、
+> 従来どおりシミュレータ不要・数秒で通る。`Analytics.swift` の SDK 側の経路は §2 のビルドで検証される。
 
 ## 2. シミュレータビルド（本命の確認）
 
@@ -43,7 +49,7 @@ xcodebuild -project BucketList.xcodeproj -scheme BucketListTests \
 ```
 
 - 対象は UI 非依存の純ロジック（`Classifier` / `TimingEngine` / `NotificationPlanner.plan` / `SeasonPlan` / `SeasonTag` / filter・sort /
-  寛容 `Codable` / `TagValidator`）。詳細は [data-model](../architecture/data-model.md#テスト対象として価値が高いロジック)。
+  寛容 `Codable` / `TagValidator` / `Engagement`＋計測語彙）。詳細は [data-model](../architecture/data-model.md#テスト対象として価値が高いロジック)。
 - 追加は新規テストファイル ＋ `BucketListTests` ターゲットへ。既存アプリロジックの挙動は変えない。
 - スキル `/verify-build` が 1.→2.→3. をまとめて実行する。
 

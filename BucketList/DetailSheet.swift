@@ -103,6 +103,7 @@ struct DetailSheet: View {
         return Button {
             guard let link else { return }
             Haptics.light()
+            Analytics.track(.itemLinkOpen)
             openURL(link)
         } label: {
             HStack(alignment: .center, spacing: 10) {

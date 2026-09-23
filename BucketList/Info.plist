@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Merged into the Xcode-generated Info.plist (GENERATE_INFOPLIST_FILE=YES).
+	     Only Firebase Analytics switches live here; everything else stays in the
+	     target's INFOPLIST_KEY_* build settings. -->
+
+	<!-- Collect nothing until Analytics.start() applies the user's choice
+	     (設定 → プライバシー → 利用状況の送信). -->
+	<key>FirebaseDataCollectionDefaultEnabled</key>
+	<false/>
+	<!-- Screens are logged by hand (SwiftUI has no view controllers to swizzle). -->
+	<key>FirebaseAutomaticScreenReportingEnabled</key>
+	<false/>
+	<!-- No UIApplicationDelegate swizzling: we don't use FCM / deep links via Firebase. -->
+	<key>FirebaseAppDelegateProxyEnabled</key>
+	<false/>
+	<!-- Usage analytics only — no device identifier, no ad personalization signals. -->
+	<key>GOOGLE_ANALYTICS_IDFV_COLLECTION_ENABLED</key>
+	<false/>
+	<key>GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_PERSONALIZATION_SIGNALS</key>
+	<false/>
+</dict>
+</plist>

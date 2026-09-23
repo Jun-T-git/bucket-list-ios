@@ -78,6 +78,14 @@ struct OnboardingView: View {
                 }
                 .font(Theme.Font.sans(14.5, weight: .semibold))
                 .foregroundColor(Theme.Color.ink2)
+
+                // Plain disclosure, no consent modal (§1/§6): usage analytics
+                // is on by default and can be switched off in 設定 → プライバシー.
+                Text("改善のため匿名の利用統計を送ります（書いた内容は送りません）。設定でいつでもオフにできます。")
+                    .font(Theme.Font.sans(11.5))
+                    .foregroundColor(Theme.Color.ink3)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(.horizontal, 28)

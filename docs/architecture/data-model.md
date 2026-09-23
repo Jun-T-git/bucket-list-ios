@@ -50,7 +50,7 @@
 
 | 型 | 役割 |
 |----|------|
-| `Tweaks` | 設定ブロブ（通知トグル、`autoClassify`、`yearGoal`＋年別 `yearGoals`、`userName`） |
+| `Tweaks` | 設定ブロブ（通知トグル、`autoClassify`、`analyticsEnabled`＝利用状況送信の opt-out、`yearGoal`＋年別 `yearGoals`、`userName`） |
 | `Filters` | 4集合：priority / seasons / tags / statuses。軸間 AND・軸内 OR |
 | `ViewPrefs` / `SortMode` | 表示設定 / 並び替え（6モード） |
 | `ItemStatus` / `YearScope` | 状態フィルタ / 年スコープ（`.all` / `.year(Int)`） |

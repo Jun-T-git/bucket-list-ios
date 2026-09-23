@@ -71,6 +71,10 @@ needsUserConfirmation, readable, sourceURL, canonical`。
 いずれも 600ms デバウンス、URL がまだ現在のものである時のみ結果を受理、成功時に無料取り込みを1回消費
 （`Storage.consumeFreeCapture()`。v1.0 は無効 = [ADR 0005](../decisions/0005-v1無料とPro無効フラグ.md)）。
 
+両経路とも結果の分岐点で `Analytics.captureResult(outcome, source:)`（`outcome` = ok / low_confidence / failed / invalid、
+`source` = app / share）を1回記録し、アプリ内の「反映」で `capture_apply` を記録する。URL・タイトル等の内容は送らない
+（[analytics.md](analytics.md)）。パイプラインの段・データフロー自体は変えていない。
+
 ## 変更時の必須チェック（[設計原則](../philosophy/02-設計原則.md)）
 - タイトルは体言止め・意図（動詞）を足さない。LLM とルールベースで**表現を統一**。
 - 入力に使うのは端末内メタデータのみ。ページ本文・ユーザーテキストを外部送信しない。

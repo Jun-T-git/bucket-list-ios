@@ -40,6 +40,9 @@ struct AddEditSheet: View {
     @State private var autoTask: Task<Void, Never>? = nil   // debounce
     @State private var genTask: Task<Void, Never>? = nil     // in-flight fetch
     @State private var lastQueriedURL = ""
+    // Whether a URL reading was adopted (反映) in this sheet — reported with the
+    // save so "typed by hand" and "filled by the reading" can be told apart.
+    @State private var captureApplied = false
 
     enum URLState { case idle, invalidFormat, generating, ok, failed, lowConfidence }
 
@@ -243,6 +246,7 @@ struct AddEditSheet: View {
         guard URLSafety.looksLikeWebURL(raw) else {
             genTask?.cancel()
             urlState = .invalidFormat; isGenerating = false; pendingCandidate = nil
+            Analytics.captureResult("invalid", source: "app")
             return
         }
         // 自動分類オフ時は AI 補完を行わない。URL 形式の検証だけ通し、リンクは
@@ -285,6 +289,7 @@ struct AddEditSheet: View {
                         pendingCandidate = c
                         urlState = .ok
                         Haptics.success()
+                        Analytics.captureResult("ok", source: "app")
                     } else if c.readable {
                         // Read the link but couldn't confidently name it — don't
                         // offer a placeholder preview to adopt; ask the user to fill
@@ -292,10 +297,12 @@ struct AddEditSheet: View {
                         pendingCandidate = nil
                         urlState = .lowConfidence
                         Haptics.warning()
+                        Analytics.captureResult("low_confidence", source: "app")
                     } else {
                         pendingCandidate = nil
                         urlState = .failed
                         Haptics.warning()
+                        Analytics.captureResult("failed", source: "app")
                     }
                 }
             }
@@ -327,7 +334,9 @@ struct AddEditSheet: View {
         lastQueriedURL = urlInput.trimmingCharacters(in: .whitespaces)
         pendingCandidate = nil
         urlState = .ok
+        captureApplied = true
         Haptics.light()
+        Analytics.track(.captureApply)
     }
 
     // MARK: footer
@@ -373,7 +382,7 @@ struct AddEditSheet: View {
                 url: resolvedURL
             )
         } else {
-            store.add(
+            let item = store.add(
                 title: title.trimmingCharacters(in: .whitespaces),
                 priority: resolvedPrio,
                 seasons: resolvedSeasons,
@@ -382,6 +391,9 @@ struct AddEditSheet: View {
                 via: resolvedURL != nil ? "URL" : nil,
                 url: resolvedURL
             )
+            Analytics.itemAdded(priority: item.priority, seasons: item.seasons,
+                                tagCount: item.tags.count, hasURL: item.url != nil,
+                                source: "app", fromCapture: captureApplied)
         }
         onClose()
     }

@@ -466,6 +466,9 @@ struct Tweaks: Codable, Equatable {
     var weekendNudge: Bool = true
     var monthEndNudge: Bool = true
     var autoClassify: Bool = true
+    // Usage analytics opt-out (設定 → プライバシー). On by default; the events
+    // themselves carry no user text — see Analytics.swift.
+    var analyticsEnabled: Bool = true
     var yearGoal: Int = 100         // default annual goal — fallback for years without an override
     var yearGoals: [Int: Int] = [:] // per-year goal overrides (year → goal)
     var userName: String = "あなた"
@@ -480,6 +483,7 @@ struct Tweaks: Codable, Equatable {
         weekendNudge = (try? c.decode(Bool.self, forKey: .weekendNudge)) ?? true
         monthEndNudge = (try? c.decode(Bool.self, forKey: .monthEndNudge)) ?? true
         autoClassify = (try? c.decode(Bool.self, forKey: .autoClassify)) ?? true
+        analyticsEnabled = (try? c.decode(Bool.self, forKey: .analyticsEnabled)) ?? true
         yearGoal = (try? c.decode(Int.self, forKey: .yearGoal)) ?? 100
         yearGoals = (try? c.decode([Int: Int].self, forKey: .yearGoals)) ?? [:]
         userName = (try? c.decode(String.self, forKey: .userName)) ?? "あなた"
@@ -572,13 +576,33 @@ final class AppStore: ObservableObject {
     // set is the user's real data — and we avoid auto-persisting over the file.
     @Published var storageUnreadable: Bool = false
     @Published var tweaks: Tweaks {
-        didSet { persistTweaks() }
+        didSet {
+            persistTweaks()
+            // Persist first: Analytics reads the toggle back from the suite, so
+            // an opt-out is honored before any event below could be sent.
+            if oldValue.analyticsEnabled != tweaks.analyticsEnabled {
+                Analytics.setEnabled(tweaks.analyticsEnabled)
+            }
+            Analytics.settingsChanged(from: oldValue, to: tweaks)
+        }
     }
 
     // View configuration — persisted across launches as a single ViewPrefs blob.
-    @Published var filters = Filters() { didSet { persistPrefs() } }
-    @Published var sortMode: SortMode = .recommended { didSet { persistPrefs() } }
-    @Published var sortAscending: Bool = false { didSet { persistPrefs() } }
+    @Published var filters = Filters() {
+        didSet { persistPrefs(); Analytics.filterChanged(from: oldValue, to: filters) }
+    }
+    @Published var sortMode: SortMode = .recommended {
+        didSet {
+            persistPrefs()
+            if oldValue != sortMode { Analytics.sortChanged(mode: sortMode, ascending: sortAscending) }
+        }
+    }
+    @Published var sortAscending: Bool = false {
+        didSet {
+            persistPrefs()
+            if oldValue != sortAscending { Analytics.sortChanged(mode: sortMode, ascending: sortAscending) }
+        }
+    }
 
     // Transient
     // Which achievement year the list is scoped to. Kept out of ViewPrefs on
@@ -594,7 +618,10 @@ final class AppStore: ObservableObject {
     @Published var toastUndoLabel: String? = nil
     @Published var selectedTab: Tab = .home {
         didSet {
-            if oldValue != selectedTab { Haptics.select() }
+            if oldValue != selectedTab {
+                Haptics.select()
+                Analytics.screen(selectedTab.analyticsName)
+            }
         }
     }
 
@@ -682,6 +709,7 @@ final class AppStore: ObservableObject {
     func completeOnboarding() {
         Storage.onboardingDone = true
         showOnboarding = false
+        Analytics.track(.onboardingComplete)
     }
 
     // Re-show the walkthrough on demand (設定 →「使い方をもう一度見る」).
@@ -728,7 +756,11 @@ final class AppStore: ObservableObject {
     func goal(forYear y: Int) -> Int { tweaks.yearGoals[y] ?? tweaks.yearGoal }
 
     // Persisted via the tweaks didSet observer.
-    func setGoal(_ v: Int, forYear y: Int) { tweaks.yearGoals[y] = v }
+    func setGoal(_ v: Int, forYear y: Int) {
+        guard tweaks.yearGoals[y] != v else { return }
+        tweaks.yearGoals[y] = v
+        Analytics.track(.goalChange, ["goal": .int(v)])
+    }
 
     // Built-ins + custom, plus a key→TagDef map, cached and rebuilt only when
     // customTags changes. tagMeta(for:) is read per TagChip render (several per
@@ -767,9 +799,11 @@ final class AppStore: ObservableObject {
         if nowDone {
             Haptics.success()
             flash(doneLine())
+            Analytics.itemDone(next[idx], source: "list")
         } else {
             Haptics.light()
             flash("未達成に戻しました。")
+            Analytics.track(.itemUndone, ["source": .string("list")])
         }
     }
 
@@ -822,6 +856,7 @@ final class AppStore: ObservableObject {
         }
         items = next
         Haptics.light()
+        Analytics.bulk("tag_add", count: ids.count)
     }
 
     func removeTag(_ key: String, from ids: Set<Int>) {
@@ -832,6 +867,7 @@ final class AppStore: ObservableObject {
         }
         items = next
         Haptics.light()
+        Analytics.bulk("tag_remove", count: ids.count)
     }
 
     // How a tag covers the current selection: every / some / none of them.
@@ -850,6 +886,7 @@ final class AppStore: ObservableObject {
         items = next
         Haptics.light()
         flash("優先度を変更しました。")
+        Analytics.bulk("priority", count: ids.count)
     }
 
     // The shared priority of the selection, or nil if they differ.
@@ -876,6 +913,11 @@ final class AppStore: ObservableObject {
         items = next   // single didSet → single persist
         Haptics.success()
         flash(done ? "\(ids.count)件を達成にしました。" : "\(ids.count)件を未達成に戻しました。")
+        Analytics.bulk(done ? "done" : "undone", count: ids.count)
+        // Each achievement counts toward the KPI individually, like single taps.
+        if done {
+            for it in next where ids.contains(it.id) { Analytics.itemDone(it, source: "bulk") }
+        }
     }
 
     func removeMany(ids: Set<Int>) {
@@ -889,6 +931,7 @@ final class AppStore: ObservableObject {
         pendingUndoMany = removed
         items.removeAll { ids.contains($0.id) }
         Haptics.warning()
+        Analytics.track(.itemDelete, ["source": .string("bulk"), "count": .int(n)])
         flash("\(n)件を削除しました。", duration: 3.5,
               undoLabel: "元に戻す",
               undo: { [weak self] in
@@ -901,6 +944,7 @@ final class AppStore: ObservableObject {
                   self.items = next
                   self.pendingUndoMany = nil
                   Haptics.light()
+                  Analytics.track(.undo, ["kind": .string("delete_many"), "count": .int(n)])
               })
     }
 
@@ -923,6 +967,7 @@ final class AppStore: ObservableObject {
         items = next
         Haptics.success()
         flash(doneLine())
+        Analytics.itemDone(next[idx], source: "detail")
     }
 
     // Checking something off is the product's reward moment — the copy
@@ -940,6 +985,8 @@ final class AppStore: ObservableObject {
         pendingUndo = (removed, idx)
         items.remove(at: idx)
         Haptics.warning()
+        Analytics.track(.itemDelete, ["source": .string("single"), "count": .int(1),
+                                      "was_done": .init(removed.done)])
         flash("削除しました。", duration: 3.5,
               undoLabel: "元に戻す",
               undo: { [weak self] in
@@ -949,6 +996,7 @@ final class AppStore: ObservableObject {
                   self.items.insert(pending.item, at: insertAt)
                   self.pendingUndo = nil
                   Haptics.light()
+                  Analytics.track(.undo, ["kind": .string("delete"), "count": .int(1)])
               })
     }
 
@@ -978,6 +1026,7 @@ final class AppStore: ObservableObject {
         items = next
         Haptics.light()
         flash("保存しました。")
+        Analytics.track(.itemUpdate, ["has_url": .init(next[idx].url != nil)])
     }
 
     @discardableResult
@@ -1016,6 +1065,7 @@ final class AppStore: ObservableObject {
         let key = "c-" + UUID().uuidString
         customTags.append(TagDef(key: key, ja: trimmed, builtin: false))
         flash("「\(trimmed)」を追加しました。")
+        Analytics.track(.customTagAdd, ["custom_count": .int(customTags.count)])
         return key
     }
 

@@ -37,7 +37,14 @@ App Store Connect → **マイApp** → **＋** → 新規App:
 
 ## 4. アプリ情報・バージョン情報を入力
 - **一般情報**: カテゴリ（ライフスタイル）、年齢制限（4+）。
-- **App プライバシー**: 「データを収集しません」を選択して公開。
+- **App プライバシー**（v1.2 以降、利用状況アナリティクス導入後）: 「はい、データを収集します」で以下を申告
+  （[ADR 0006](../decisions/0006-利用状況アナリティクス.md)／[analytics.md](../architecture/analytics.md)）:
+  - **利用状況データ → プロダクトの操作**：目的＝アナリティクス／ユーザーに紐付けない／トラッキングに使用しない
+  - **識別子 → デバイス ID**（Firebase SDK のアプリインスタンス ID）：目的＝アナリティクス／紐付けない／トラッキングなし
+  - **診断 → その他の診断データ** は Firebase Analytics 単体では不要（Crashlytics 未使用）
+  - 最終確認は Xcode Organizer のアーカイブ → **Generate Privacy Report**（自前＋SDK の manifest を合算した結果）と一致させる。
+  - 「トラッキング」は **いいえ**（ATT なし・IDFA 不使用）。
+  - v1.1 以前は「データを収集しません」だった。ポリシー URL の内容（`docs/index.html` §1/§6）も同時に更新済みであること。
 - **プライバシーポリシーURL**: `https://jun-t-git.github.io/bucket-list-ios/`
 - **サポートURL**: 同上。
 - バージョン 1.0 の: プロモーションテキスト / 説明 / キーワード / スクリーンショット / 「このバージョンの新機能」を入力（`app-store-metadata.md`）。
@@ -59,6 +66,8 @@ scripts/release-testflight.sh --version 1.0.2  # リリース済みトレイン�
 ```
 
 前提は Xcode に Apple ID サインイン済みのみ（認証・署名に使う）。成功したら pbxproj のバージョン変更をコミットする。
+アナリティクスを有効にして出すには `BucketList/GoogleService-Info.plist` が **本物**（Firebase コンソール由来）であること
+（プレースホルダのままでもビルド・審査は通るが計測は無効。[analytics.md §セットアップ](../architecture/analytics.md#セットアップ初回と鍵ファイル)）。
 
 <details><summary>手動（Xcode GUI）の場合</summary>
 
@@ -104,7 +113,8 @@ scripts/submit-appstore.py submit --notes notes.txt --release MANUAL   # 承認�
 ## 提出前チェックリスト（v1.0・無料）
 - [ ] 0. 全ターゲット（本体/ShareExtension/WidgetExtension）に署名チーム設定
 - [ ] 2. アプリ作成（Bundle ID 一致）
-- [ ] 4. App Privacy=収集なし／ポリシーURL登録
+- [ ] 4. App Privacy＝利用状況データ＋識別子（紐付けなし・トラッキングなし）／ポリシーURL登録（v1.1 以前は「収集なし」）
+- [ ] 4'. `GoogleService-Info.plist` が本物（計測を有効にする場合）
 - [ ] 5. iPhone スクショ（6.7型）アップロード
 - [ ] 6. Archive→Upload 完了・ビルド選択
 - [ ] 7. 審査メモ記入・提出

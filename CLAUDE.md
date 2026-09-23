@@ -41,6 +41,8 @@ iOS SwiftUI アプリ。**このファイルは毎セッション読み込まれ
 - **主要画面**：`ContentView`(ルート/タブ) `HomeView`(リスト) `AddEditSheet` `ReportView` `SettingsView` `FilterSheet`。
 - **Pro（v1.0 は無効）**：`ProStore.swift` / `PaywallView.swift`（[ADR 0005](docs/decisions/0005-v1無料とPro無効フラグ.md)）。
 - **ホームウィジェット**：`WidgetExtension/`（タイミング提案を Small/Medium で表示）。提案の選定は純関数 `TimingEngine`（`Models.swift`）を本体と共有。
+- **利用状況アナリティクス**：`Analytics.swift` が唯一の入口（Firebase Analytics、本体のみリンク。拡張は App Group キュー）。
+  イベント語彙と見方 → [`docs/architecture/analytics.md`](docs/architecture/analytics.md)（[ADR 0006](docs/decisions/0006-利用状況アナリティクス.md)）。
 
 ## 変更時の必須フロー
 
@@ -76,6 +78,7 @@ xcodebuild -project BucketList.xcodeproj -scheme BucketListTests \
 - **近似マテリアルで Liquid Glass を代用**する（iOS 26 では純正 `.glassEffect`）。
 - 達成時に confetti/キラキラを足す。多色で塗り分ける。カスタム書体を無断で復活させる。
 - AI が意図（動詞）を捏造する／ユーザーが編集した値を上書きする。分類のためにテキストを外部送信する。
+- **計測イベントにユーザーの内容を載せる**（タイトル/メモ/URL/タグ名/名前）。`Analytics.Event` の外で Firebase を直接呼ぶ。
 - デコード失敗でストアを空に上書きする（[設計原則§9](docs/philosophy/02-設計原則.md)）。
 - **設計原則そのものを勝手に変える**：必要なら [ADR](docs/decisions/) 起票を提案し依頼者の判断を仰ぐ。
 - **一時ドキュメント（調査メモ/計画/作業ログ）を repo に残す**：scratchpad に置く。常設 doc を更新せずコードだけ変えて放置する。

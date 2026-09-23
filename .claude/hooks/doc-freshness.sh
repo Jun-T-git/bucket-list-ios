@@ -16,6 +16,7 @@
 #   BucketList/Models.swift           -> architecture/data-model.md (+ overview.md: persistence)
 #   BucketList/Capture/**             -> architecture/capture-pipeline.md
 #   ShareExtension/ShareComposeView   -> architecture/capture-pipeline.md
+#   BucketList/Analytics.swift        -> architecture/analytics.md
 # UI (Theme/Components/*View) is intentionally NOT mapped here: its "doc" is the
 # philosophy, already guarded by .claude/rules/ui.md + design-guardian.
 #
@@ -49,6 +50,11 @@ fi
 if { changed_has '^BucketList/Capture/' || changed_has '^ShareExtension/ShareComposeView\.swift$'; } \
    && ! changed_has '^docs/architecture/capture-pipeline\.md$'; then
   add_reminder "取り込み（Capture/）を変更 → docs/architecture/capture-pipeline.md（URL→候補パイプライン）が実態と合うか確認"
+fi
+
+if changed_has '^BucketList/Analytics\.swift$' \
+   && ! changed_has '^docs/architecture/analytics\.md$'; then
+  add_reminder "Analytics.swift を変更 → docs/architecture/analytics.md（イベント語彙表）が実態と合うか確認。送る種類が増えたなら docs/index.html §6 と App Privacy も"
 fi
 # ---------------------------------------------------------------------------
 

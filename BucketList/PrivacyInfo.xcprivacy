@@ -2,13 +2,31 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- The app does no tracking and collects no data off-device. -->
+	<!-- No tracking (no cross-app/site linking, no ad attribution). -->
 	<key>NSPrivacyTracking</key>
 	<false/>
 	<key>NSPrivacyTrackingDomains</key>
 	<array/>
+	<!-- Usage analytics (Firebase Analytics): anonymous product-interaction
+	     events, not linked to the user's identity, opt-out in 設定. The user's
+	     own content (titles, memos, links) is never sent — see Analytics.swift.
+	     The Firebase SDK ships its own manifest; Xcode's Privacy Report merges
+	     both, and App Store Connect's App Privacy must match the merged result. -->
 	<key>NSPrivacyCollectedDataTypes</key>
-	<array/>
+	<array>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeProductInteraction</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+	</array>
 	<!-- Required Reason API declarations. -->
 	<key>NSPrivacyAccessedAPITypes</key>
 	<array>

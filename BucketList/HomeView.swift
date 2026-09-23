@@ -25,10 +25,14 @@ struct HomeView: View {
                         },
                         onPick: { p in
                             if let it = store.items.first(where: { $0.id == p.id }) {
+                                Analytics.track(.suggestionTap)
                                 onTap(it)
                             }
                         },
-                        onDismiss: { store.nudgeDismissed = true }
+                        onDismiss: {
+                            Analytics.track(.suggestionDismiss)
+                            store.nudgeDismissed = true
+                        }
                     )
                 }
 
