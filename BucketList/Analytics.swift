@@ -2,6 +2,7 @@ import Foundation
 #if ANALYTICS_FIREBASE
 import FirebaseCore
 import FirebaseAnalytics
+import StoreKit
 #endif
 
 // MARK: - Analytics (usage measurement)
@@ -30,6 +31,9 @@ enum Analytics {
     // the dashboard. Reserved Firebase names (session_start, first_open,
     // notification_open, …) are avoided on purpose.
     enum Event: String, CaseIterable {
+        case actionStart = "action_start"
+        case actionResult = "action_result"
+        case valueFirstReached = "value_first_reached"
         case appForeground = "app_foreground"      // every return to foreground (+ engagement)
         case onboardingComplete = "onboarding_complete"
         case screenView = "screen_view"            // Firebase's standard screen event
@@ -104,6 +108,8 @@ enum Analytics {
     // with analytics silently off — nothing to crash on a fresh checkout.
     static func start() {
         #if ANALYTICS_FIREBASE
+        prepareFirstValueScope()
+        resolveFirstValueScope()
         guard isSendingAllowed,
               let path = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
               let options = FirebaseOptions(contentsOfFile: path),
@@ -169,6 +175,198 @@ enum Analytics {
 
     static func screen(_ name: String) {
         track(.screenView, ["screen_name": Value(name)])
+    }
+
+    // Common measurement v1. Tokens stay local; no item identifiers or content
+    // can enter these parameters. Synchronous storage operations omit duration.
+    enum Action: String { case saveItem = "save_item", importItem = "import_item", viewItem = "view_item", completeItem = "complete_item" }
+    enum Result: String { case success, cancelled, error }
+    enum ErrorCode: String { case network, timeout, storage, validation, permission, unknown }
+
+    final class Operation {
+        let action: Action
+        private(set) var finished = false
+        init(_ action: Action) {
+            self.action = action
+            Analytics.track(.actionStart, Self.parameters(action))
+        }
+        static func parameters(_ action: Action) -> Params {
+            ["schema_version": .int(1), "action_name": .string(action.rawValue)]
+        }
+        // Returns nil after the first terminal callback, including retry callbacks.
+        func finishParameters(_ result: Result, error: ErrorCode? = nil) -> Params? {
+            guard !finished else { return nil }
+            finished = true
+            var p = Self.parameters(action)
+            p["result"] = .string(result.rawValue)
+            if result == .error { p["error_code"] = .string((error ?? .unknown).rawValue) }
+            return p
+        }
+        func finish(_ result: Result, error: ErrorCode? = nil) {
+            guard let p = finishParameters(result, error: error) else { return }
+            Analytics.track(.actionResult, p)
+        }
+    }
+
+    static func itemViewed() {
+        var p = Operation.parameters(.viewItem)
+        p["result"] = .string("success")
+        track(.actionResult, p)
+    }
+
+    // Positive proof is supplied only by a trusted install-verification path.
+    // Missing data and SDK first_open are never local proof of a new scope.
+    enum ScopeEvidence: Equatable { case unknown, existing, verifiedNew }
+
+    // iOS originalAppVersion is CFBundleVersion, never marketing version.
+    // Only numeric dot-separated build versions have an ordering here.
+    static func installEvidence(originalBuild: String, currentBuild: String, firstBuild: String,
+                                production: Bool, bundleMatches: Bool) -> ScopeEvidence {
+        func parse(_ raw: String) -> [Int]? {
+            let parts = raw.split(separator: ".", omittingEmptySubsequences: false)
+            guard (1...3).contains(parts.count) else { return nil }
+            var values: [Int] = []
+            for part in parts {
+                guard !part.isEmpty, part.utf8.allSatisfy({ (48...57).contains($0) }),
+                      let number = Int(part) else { return nil }
+                values.append(number)
+            }
+            guard values[0] > 0 else { return nil }
+            while values.count < 3 { values.append(0) }
+            return values
+        }
+        guard production, bundleMatches, let original = parse(originalBuild),
+              let current = parse(currentBuild), let first = parse(firstBuild),
+              !current.lexicographicallyPrecedes(first),
+              !current.lexicographicallyPrecedes(original) else { return .unknown }
+        return original.lexicographicallyPrecedes(first) ? .existing : .verifiedNew
+    }
+
+    #if ANALYTICS_FIREBASE
+    private static func resolveFirstValueScope() {
+        // Deliberately unset until the first instrumented release build is known.
+        // shared reads signed acquisition information; no refresh/purchase/auth UI.
+        guard isEnabled, isSendingAllowed, !Screenshots.isOn,
+              let first = Bundle.main.object(forInfoDictionaryKey: "CommonMeasurementFirstBuild") as? String,
+              let current = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String else { return }
+        Task {
+            guard let verification = try? await AppTransaction.shared,
+                  case .verified(let transaction) = verification else { return }
+            let evidence = installEvidence(originalBuild: transaction.originalAppVersion,
+                                           currentBuild: current, firstBuild: first,
+                                           production: transaction.environment == .production,
+                                           bundleMatches: transaction.bundleID == Bundle.main.bundleIdentifier)
+            recordFirstValueScopeEvidence(evidence)
+        }
+    }
+    #endif
+
+    struct FirstValueState: Codable, Equatable {
+        var verifiedNewScope = false
+        var firstSaveConsumed = false
+        var scopeInitialized = false
+        var existingScope = false
+
+        init(verifiedNewScope: Bool = false, scopeInitialized: Bool = false) {
+            self.verifiedNewScope = verifiedNewScope
+            self.scopeInitialized = scopeInitialized
+        }
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            verifiedNewScope = try c.decodeIfPresent(Bool.self, forKey: .verifiedNewScope) ?? false
+            firstSaveConsumed = try c.decodeIfPresent(Bool.self, forKey: .firstSaveConsumed) ?? false
+            scopeInitialized = try c.decodeIfPresent(Bool.self, forKey: .scopeInitialized) ?? false
+            existingScope = try c.decodeIfPresent(Bool.self, forKey: .existingScope) ?? false
+            if !scopeInitialized { verifiedNewScope = false }
+        }
+
+        mutating func applyEvidence(_ evidence: ScopeEvidence) {
+            guard !firstSaveConsumed, !existingScope else { return }
+            switch evidence {
+            case .unknown: break
+            case .existing: existingScope = true; verifiedNewScope = false
+            case .verifiedNew:
+                guard scopeInitialized else { return }
+                verifiedNewScope = true
+            }
+        }
+
+        mutating func consumeFirstSave(collectionEnabled: Bool) -> Params? {
+            guard !firstSaveConsumed else { return nil }
+            firstSaveConsumed = true
+            // Consume even without a completed snapshot, but never claim. A later
+            // successful initialization/proof must not relabel this saved item.
+            guard scopeInitialized && verifiedNewScope && !existingScope && collectionEnabled else { return nil }
+            return ["schema_version": .int(1), "activation_key": .string("first_item_saved"),
+                    "definition_version": .int(1), "first_status": .string("new_since_measurement")]
+        }
+    }
+
+    // A separate coordinated JSON file serializes host/share claims. Never use
+    // UserDefaults read-modify-write for a cross-process one-time claim.
+    enum FirstValueStore {
+        static let legacyKey = "bucket-list-v2.commonMeasurement.firstValue"
+        static var fileURL: URL? {
+            FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: Storage.appGroupID)?
+                .appendingPathComponent("common-measurement-v1.json")
+        }
+
+        @discardableResult
+        static func update(at url: URL? = fileURL, legacyData: Data? = Storage.defaults.data(forKey: legacyKey),
+                           _ body: (inout FirstValueState) -> Params?) -> Params? {
+            guard let url else { return nil } // No shared container means unknown, never claim locally.
+            let coordinator = NSFileCoordinator()
+            var coordinationError: NSError?
+            var result: Params?
+            coordinator.coordinate(writingItemAt: url, options: .forMerging, error: &coordinationError) { target in
+                var state: FirstValueState
+                if FileManager.default.fileExists(atPath: target.path) {
+                    // Corruption is not absence: preserve it and suppress collection.
+                    guard let data = try? Data(contentsOf: target),
+                          let decoded = try? JSONDecoder().decode(FirstValueState.self, from: data) else { return }
+                    state = decoded
+                } else if let legacyData {
+                    guard let decoded = try? JSONDecoder().decode(FirstValueState.self, from: legacyData) else { return }
+                    state = decoded
+                    state.verifiedNewScope = false // Old defaults never contained trusted install proof.
+                } else {
+                    state = FirstValueState()
+                }
+                let candidate = body(&state)
+                guard let data = try? JSONEncoder().encode(state) else { return }
+                do { try data.write(to: target, options: .atomic); result = candidate }
+                catch { return }
+            }
+            return coordinationError == nil ? result : nil
+        }
+    }
+
+    // Called before either process migrates/writes the current launch's state.
+    // Snapshot once: history subsequently produced by this measured scope must
+    // not downgrade a verified new scope or become retrospective new proof.
+    static func prepareFirstValueScope() {
+        let evidence: ScopeEvidence = Storage.hasPreMeasurementHistory ? .existing : .unknown
+        FirstValueStore.update { state in
+            guard !state.scopeInitialized else { return nil }
+            state.applyEvidence(evidence)
+            state.scopeInitialized = true
+            return nil
+        }
+    }
+
+    static func recordFirstValueScopeEvidence(_ evidence: ScopeEvidence) {
+        FirstValueStore.update { state in
+            guard state.scopeInitialized else { return nil }
+            state.applyEvidence(evidence)
+            return nil // Evidence arriving after a save never emits an event.
+        }
+    }
+
+    static func firstItemSaved() {
+        let params = FirstValueStore.update { state in
+            state.consumeFirstSave(collectionEnabled: isEnabled)
+        }
+        if let params { track(.valueFirstReached, params) }
     }
 
     // MARK: shaped events (the vocabulary call sites share)

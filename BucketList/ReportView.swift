@@ -2,8 +2,7 @@ import SwiftUI
 
 // MARK: - Report data
 
-struct MonthlyBucket: Identifiable {
-    let id = UUID()
+struct MonthlyBucket {
     let month: Int
     let year: Int
     var top: Int
@@ -53,10 +52,13 @@ extension AppStore {
         // filling the histogram is O(doneItems) instead of O(doneItems × months).
         var indexByMonthKey: [Int: Int] = [:]
         for (i, b) in hist.enumerated() { indexByMonthKey[b.year * 12 + b.month] = i }
+        let currentYear = Clock.year
+        var thisYearDone = 0
         for it in doneItems {
             guard let at = it.doneAt else { continue }
-            let m = cal.component(.month, from: at)
-            let y = cal.component(.year, from: at)
+            let components = cal.dateComponents([.year, .month], from: at)
+            guard let m = components.month, let y = components.year else { continue }
+            if y == currentYear { thisYearDone += 1 }
             guard let idx = indexByMonthKey[y * 12 + m] else { continue }
             switch it.priority {
             case .top: hist[idx].top += 1
@@ -66,9 +68,6 @@ extension AppStore {
         }
 
         let lifetime = doneItems.count
-        let thisYearDone = doneItems.filter {
-            $0.doneAt.map { cal.component(.year, from: $0) } == Clock.year
-        }.count
         let monthsElapsed = Clock.month
         let monthsRemaining = 12 - monthsElapsed
         let currentPace = Double(thisYearDone) / Double(max(1, monthsElapsed))
@@ -235,7 +234,7 @@ struct ReportView: View {
     private func scopeCount(_ scope: YearScope, _ r: ReportData) -> Int {
         switch scope {
         case .all: return r.lifetime
-        case .year(let y): return r.hist.filter { $0.year == y }.reduce(0) { $0 + $1.total }
+        case .year(let y): return r.hist.lazy.filter { $0.year == y }.reduce(0) { $0 + $1.total }
         }
     }
 

@@ -1,0 +1,41 @@
+# CI: push / PR ごとに 型チェック → シミュレータビルド → ユニットテスト。
+# シークレット不要（署名なし・シミュレータのみ）。
+# TestFlight 配信は手元で scripts/release-testflight.sh（docs/workflows/release-runbook.md 参照）。
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    # .glassEffect 等 iOS 26 API を使うため Xcode 26 系イメージが必要
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 型チェック
+        run: |
+          SDK=$(xcrun --sdk iphoneos --show-sdk-path)
+          xcrun --sdk iphoneos swiftc -typecheck -sdk "$SDK" -target arm64-apple-ios17.0 $(find BucketList -name '*.swift')
+
+      - name: シミュレータ選択
+        id: sim
+        run: |
+          NAME=$(xcrun simctl list devices available | grep -oE 'iPhone [A-Za-z0-9 ]+' | head -1 | xargs)
+          echo "選択: $NAME"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+
+      - name: シミュレータビルド
+        run: |
+          xcodebuild -project BucketList.xcodeproj -scheme BucketList \
+            -destination "platform=iOS Simulator,name=${{ steps.sim.outputs.name }}" \
+            -configuration Debug -derivedDataPath /tmp/BucketList-build build
+
+      - name: ユニットテスト
+        run: |
+          xcodebuild -project BucketList.xcodeproj -scheme BucketListTests \
+            -destination "platform=iOS Simulator,name=${{ steps.sim.outputs.name }}" \
+            -derivedDataPath /tmp/test-build test

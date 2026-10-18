@@ -14,6 +14,7 @@ struct DetailSheet: View {
     // Year-month chosen for an as-yet-unachieved item. Once the item is done the
     // picker edits the stored `doneAt` directly instead of this draft.
     @State private var pendingDate = Clock.today
+    @State private var measuredView = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -50,7 +51,13 @@ struct DetailSheet: View {
             footer
         }
         .background(Theme.Color.pageBackground)
-        .onAppear { pendingDate = live.doneAt ?? Clock.today }
+        .onAppear {
+            pendingDate = live.doneAt ?? Clock.today
+            if !measuredView && store.items.contains(where: { $0.id == item.id }) {
+                measuredView = true
+                Analytics.itemViewed()
+            }
+        }
     }
 
     private var header: some View {

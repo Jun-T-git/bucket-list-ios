@@ -156,7 +156,7 @@ enum GoogleMapsURL {
 
 // MARK: - Metadata fetcher
 
-// LinkPresentation first (standard, gives a clean title + preview image); a
+// LinkPresentation first (title only, without downloading preview media); a
 // size-capped HTML/OGP read only fills the gaps. Every failure is a normal
 // outcome — callers always get a LinkMetadata they can fall back from.
 enum MetadataFetcher {
@@ -233,6 +233,7 @@ enum MetadataFetcher {
     private static func fetchLinkPresentation(_ url: URL) async -> String? {
         let provider = LPMetadataProvider()
         provider.timeout = requestTimeout
+        provider.shouldFetchSubresources = false
         guard let metadata = try? await provider.startFetchingMetadata(for: url) else { return nil }
         return metadata.title
     }

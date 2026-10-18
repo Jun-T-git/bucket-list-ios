@@ -28,7 +28,8 @@ URL
 `MetadataFetcher.fetch`：
 - `SourceType.detect` … googleMaps / instagram / tiktok / x / youtube / web を判別。
 - 短縮URLは redirect 上限付き `RedirectGuard` で展開。
-- タイトルは `LinkPresentation`（`LPMetadataProvider`）。欠けた分だけ**サイズ上限（256KB）の HTML/OGP head**
+- タイトルは `LinkPresentation`（`LPMetadataProvider`）。使わない画像・動画・アイコンは
+  `shouldFetchSubresources = false` で取得しない。欠けた分だけ**サイズ上限（256KB）の HTML/OGP head**
   を読んで補う。
 - Google Maps は `GoogleMapsURL.placeName` で URL から地名を抽出。
 - 返すのは `LinkMetadata`。**ページ本文は決してモデルに渡さない**（この事実だけを渡す）。
