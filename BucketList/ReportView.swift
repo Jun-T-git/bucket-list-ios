@@ -164,7 +164,8 @@ struct ReportView: View {
     @EnvironmentObject var store: AppStore
     let onTap: (BucketItem) -> Void
     let onAdd: () -> Void
-    @State private var historyOpen = false
+    @Binding var historyOpen: Bool
+    let onHistoryDismiss: (BucketItem?) -> Void
     @State private var pendingItem: BucketItem?
 
     // Which achievement year the report is focused on. @State survives tab
@@ -257,10 +258,9 @@ struct ReportView: View {
         .sheet(isPresented: $historyOpen, onDismiss: {
             // Let the list sheet finish dismissing before the root presents
             // the existing detail/edit flow. Never stack competing sheets.
-            if let item = pendingItem {
-                pendingItem = nil
-                onTap(item)
-            }
+            let item = pendingItem
+            pendingItem = nil
+            onHistoryDismiss(item)
         }) {
             NavigationStack {
                 List {
