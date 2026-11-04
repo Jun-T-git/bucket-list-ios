@@ -174,7 +174,10 @@ struct ReportView: View {
     @State private var scope: YearScope = .year(Clock.year)
 
     var body: some View {
-        let years = store.achievementYears
+        // Keep the selected year visible if its last record is undone/deleted.
+        // The now-empty period still needs a selected chip and its add action.
+        let selectedYears: [Int] = { if case .year(let year) = scope { return [year] }; return [] }()
+        let years = Array(Set(store.achievementYears + selectedYears)).sorted()
         let historyItems = AchievementHistory.items(store.items, scope: scope)
         let r = store.report(yearGoal: store.goal(forYear: Clock.year))
         let footerPrefix: String = {

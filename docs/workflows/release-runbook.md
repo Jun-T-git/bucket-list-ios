@@ -65,7 +65,32 @@ CFBundleVersionを監査する。マーケティング版をまたいでbuild番
 以後は全マーケティング版でCFBundleVersionを単調増加させ、境界を固定し、番号を下げたり再利用しない。
 この履歴は今回未監査のため境界は未設定のまま維持し、初回価値を収集しない。公開前提を確認できない間は有効化しない。
 
-**推奨: スクリプトで一括**（型チェック→ビルド番号+1→アーカイブ→アップロード。スキル `/deploy-testflight` でも同じ）:
+### 固定ソースからの配信（HQ経由、2026-11-04以降）
+
+ビルド前に全ターゲットのversion/buildを確定し、型チェック・差分検査、commit・push、remote ref/SHA一致を確認する。
+main `/docs` は本番Pagesの公開元なので、未承認のmain pushは行わず、副作用を確認した専用branchに保存する。
+Appleの配布履歴を全ページ確認し、未使用のbuild番号を選ぶ。既存build/他セッションとの競合を先に確認する。
+
+下記の従来スクリプトは実行中にpbxprojを書き換えるため、この固定版フローでは使わない。
+変更後入力を固定・保存する前のarchiveをアップロードしない。
+型チェック→シミュレータbuild→tests・必要な独立レビュー・実操作を確認した固定版で、手動のarchive/exportを使う。
+
+```sh
+xcodebuild -project BucketList.xcodeproj -scheme BucketList \
+  -destination 'generic/platform=iOS' -configuration Release \
+  -archivePath /tmp/wishes-release/Wishes.xcarchive -allowProvisioningUpdates archive
+xcodebuild -exportArchive -archivePath /tmp/wishes-release/Wishes.xcarchive \
+  -exportOptionsPlist scripts/ExportOptions.plist \
+  -exportPath /tmp/wishes-release/export -allowProvisioningUpdates
+```
+
+archiveのversion/build・本体/拡張の署名とソースmanifestを照合し、export時のソース書換えがないことも確認する。
+upload成功だけで配布済みとせず、ASCのVALID・ベータ状態・既存内部グループへのbuild登録と既存テスター所属を確認する。
+固定commit・版/build・確認範囲・試し方・未実機等の限界は所管Issueに集約する。本番提出は別の具体指示を要する。
+
+### 従来スクリプト（入力を書き換えるため上記フローでは使用しない）
+
+型チェック→ビルド番号+1→アーカイブ→アップロードを一括で行う:
 
 ```sh
 scripts/release-testflight.sh                  # ビルド番号を +1 して配信
