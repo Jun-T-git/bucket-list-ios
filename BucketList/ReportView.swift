@@ -24,8 +24,7 @@ struct ReportData {
 }
 
 extension AppStore {
-    // Aggregated from the user's actual doneAt history — the report only ever
-    // shows things that really happened. The summary, pace and 季節 sections are
+    // Aggregated from stored doneAt history (legacy values may be approximate). The summary, pace and 季節 sections are
     // always current-year; the chart spans every month from the first
     // achievement to now (scrollable) and is scoped separately in the view.
     func report(yearGoal: Int) -> ReportData {
@@ -88,6 +87,26 @@ extension AppStore {
     }
 }
 
+// Read-only projection of the stored achievement dates. Legacy dates may have
+// been approximated by the decoder; never infer or rewrite them here.
+enum AchievementHistory {
+    static func items(_ items: [BucketItem], scope: YearScope) -> [BucketItem] {
+        items.filter { item in
+            guard item.done else { return false }
+            switch scope {
+            case .all: return true
+            case .year(let year):
+                guard let date = item.doneAt else { return false }
+                return Clock.calendar.component(.year, from: date) == year
+            }
+        }.sorted {
+            let lhs = $0.doneAt ?? .distantPast
+            let rhs = $1.doneAt ?? .distantPast
+            return lhs == rhs ? $0.id < $1.id : lhs > rhs
+        }
+    }
+}
+
 // MARK: - SeasonPlan
 // 「これからの季節」の振り分け — a pure function over [BucketItem].
 // Season-tagged items sit in every season they name. "いつでも" items used to
@@ -143,6 +162,10 @@ enum SeasonPlan {
 
 struct ReportView: View {
     @EnvironmentObject var store: AppStore
+    let onTap: (BucketItem) -> Void
+    let onAdd: () -> Void
+    @State private var historyOpen = false
+    @State private var pendingItem: BucketItem?
 
     // Which achievement year the report is focused on. @State survives tab
     // switches, so it's explicitly reset to 今年 in onAppear — "今年" is the
@@ -151,6 +174,7 @@ struct ReportView: View {
 
     var body: some View {
         let years = store.achievementYears
+        let historyItems = AchievementHistory.items(store.items, scope: scope)
         let r = store.report(yearGoal: store.goal(forYear: Clock.year))
         let footerPrefix: String = {
             switch scope {
@@ -178,15 +202,15 @@ struct ReportView: View {
                 AchievementSummaryCard(r: r)
                     .padding(.horizontal, 20)
 
-                // 達成ペース — the ONLY area the period selector scopes.
+                // The chart stays cumulative; selecting a year scrolls to that year.
                 VStack(alignment: .leading, spacing: 10) {
-                    SectionTitle(title: "達成ペース", sub: nil)
+                    SectionTitle(title: "達成ペースと振り返り", sub: "グラフは累計。期間で表示位置・件数・振り返りが切り替わります")
                     // Always visible so the period switch is discoverable; with
                     // only this year's data it shows 今年 / 全期間.
                     YearScopeSelector(years: years, scope: $scope)
                     if r.lifetime > 0 {
                         MonthlyStackChart(hist: r.hist, footerPrefix: footerPrefix,
-                                          footerCount: scopeCount(scope, r), scope: scope)
+                                          footerCount: historyItems.count, scope: scope)
                             .padding(.horizontal, 20)
                     } else {
                         EmptyChartCard()
@@ -197,25 +221,28 @@ struct ReportView: View {
                     PeriodStatsCard(
                         periodLabel: periodLabel,
                         openCount: store.items.filter { !$0.done }.count,
-                        doneCount: scopeCount(scope, r),
+                        doneCount: historyItems.count,
                         goal: periodGoal,
                         editYear: { if case .year(let y) = scope { return y } else { return nil } }(),
                         onSetGoal: { y, v in store.setGoal(v, forYear: y) }
                     )
                     .padding(.horizontal, 20)
+                    historyCard(periodLabel: periodLabel, count: historyItems.count)
+                        .padding(.horizontal, 20)
                 }
 
-                SectionTitle(title: "目標との差", sub: nil)
+                SectionTitle(title: "目標との差", sub: "今年の目標とペース")
                 PaceCard(r: r, goal: store.goal(forYear: Clock.year),
                          onGoalChange: { v in store.setGoal(v, forYear: Clock.year) })
                     .padding(.horizontal, 20)
 
-                SectionTitle(title: "これからの季節", sub: nil)
+                SectionTitle(title: "次の楽しみを選ぶ", sub: "これからの季節の候補です。タップして詳細へ")
                 VStack(spacing: 10) {
                     ForEach(Season.upcoming(from: Clock.season), id: \.self) { s in
                         SeasonPlanCard(
                             season: s,
-                            items: r.pendingBySeason[s] ?? []
+                            items: r.pendingBySeason[s] ?? [],
+                            onTap: onTap
                         )
                     }
                 }
@@ -227,15 +254,87 @@ struct ReportView: View {
         // @State persists across tab switches; reset to 今年 on every appear so
         // the report always opens on the current year, as intended.
         .onAppear { scope = .year(Clock.year) }
+        .sheet(isPresented: $historyOpen, onDismiss: {
+            // Let the list sheet finish dismissing before the root presents
+            // the existing detail/edit flow. Never stack competing sheets.
+            if let item = pendingItem {
+                pendingItem = nil
+                onTap(item)
+            }
+        }) {
+            NavigationStack {
+                List {
+                    Section {
+                        Text("保存されている年月を表示しています。古い記録には、保存日などで補われた年月が含まれることがあります。")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    Section {
+                        ForEach(historyItems) { item in
+                            Button {
+                                pendingItem = item
+                                historyOpen = false
+                            } label: {
+                                VStack(alignment: .leading, spacing: 5) {
+                                    Text(item.title)
+                                        .foregroundStyle(Theme.Color.ink0)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                    if let date = item.doneAt {
+                                        Text(date, format: .dateTime.year().month())
+                                            .font(.subheadline)
+                                            .foregroundStyle(Theme.Color.ink2)
+                                    } else {
+                                        Text("年月の記録なし").font(.subheadline)
+                                    }
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.vertical, 4)
+                            }
+                            .accessibilityHint("詳細を開きます")
+                        }
+                    }
+                }
+                .navigationTitle("\(periodLabel)の振り返り")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("閉じる") { historyOpen = false }
+                    }
+                }
+            }
+        }
     }
 
-    // Done count for the chart's selected period — the chip scope only ever
-    // feeds the 達成ペース area, never the rest of the tab.
-    private func scopeCount(_ scope: YearScope, _ r: ReportData) -> Int {
-        switch scope {
-        case .all: return r.lifetime
-        case .year(let y): return r.hist.lazy.filter { $0.year == y }.reduce(0) { $0 + $1.total }
+    private func historyCard(periodLabel: String, count: Int) -> some View {
+        return VStack(alignment: .leading, spacing: 10) {
+            Text("\(periodLabel)の思い出")
+                .font(Theme.Font.display(18, weight: .bold))
+                .accessibilityAddTraits(.isHeader)
+            if count == 0 {
+                Text("この期間の達成記録はまだありません。次に楽しみたいことを、ひとつ残してみませんか。")
+                    .font(Theme.Font.sans(14))
+                    .foregroundStyle(Theme.Color.ink2)
+                Button("やりたいことを追加", action: onAdd)
+                    .frame(minHeight: 44)
+            } else {
+                Button { historyOpen = true } label: {
+                    HStack {
+                        Text("達成したことを振り返る")
+                        Spacer()
+                        Text("\(count)件")
+                        Image(systemName: "chevron.right").accessibilityHidden(true)
+                    }
+                    .frame(minHeight: 44)
+                }
+                Text("保存されている年月と、具体的な記録を見返せます。")
+                    .font(Theme.Font.sans(13))
+                    .foregroundStyle(Theme.Color.ink2)
+            }
         }
+        .tint(Theme.Color.green700)
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 18).fill(Theme.Color.paper0))
     }
 
 }
@@ -916,6 +1015,7 @@ struct GoalPickerSheet: View {
 struct SeasonPlanCard: View {
     let season: Season
     let items: [BucketItem]
+    let onTap: (BucketItem) -> Void
 
     private var tint: Color {
         switch season {
@@ -969,13 +1069,20 @@ struct SeasonPlanCard: View {
                             .foregroundColor(Theme.Color.ink2)
                     }
                     ForEach(top3) { it in
+                        Button { onTap(it) } label: {
                         HStack(spacing: 7) {
                             Circle().fill(it.priority.color).frame(width: 7, height: 7)
                             Text(it.title)
                                 .font(Theme.Font.sans(13, weight: it.priority == .top ? .bold : .medium))
                                 .foregroundColor(it.priority == .top ? Theme.Color.ink0 : Theme.Color.ink1)
-                                .lineLimit(1)
+                                .lineLimit(2)
+                                .multilineTextAlignment(.leading)
                         }
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                        .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("詳細を開きます。自動で登録や達成にはしません")
                     }
                     if items.count > 3 {
                         Text("+ あと\(items.count - 3)件")

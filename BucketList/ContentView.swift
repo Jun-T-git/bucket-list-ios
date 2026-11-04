@@ -44,7 +44,10 @@ struct ContentView: View {
                         onOpenOptions: { optionsOpen = true }
                     )
                 case .records:
-                    ReportView()
+                    ReportView(
+                        onTap: { item in openItem = item },
+                        onAdd: { editingItem = nil; addOpen = true }
+                    )
                 case .settings:
                     SettingsView()
                 }

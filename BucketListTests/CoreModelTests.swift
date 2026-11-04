@@ -258,3 +258,54 @@ struct FilterCountsTests {
         }
     }
 }
+
+
+// Report history is a read-only view over the existing store. In particular,
+// legacy timestamps remain approximations, and no schema migration is needed.
+struct AchievementHistoryTests {
+    private func item(_ id: Int, _ year: Int?, done: Bool = true) -> BucketItem {
+        let date = year.flatMap { Clock.calendar.date(from: DateComponents(year: $0, month: 1, day: 1)) }
+        return BucketItem(id: id, title: String(repeating: "長い思い出", count: 30),
+                          priority: .maybe, seasons: [.any], tags: [], meta: "",
+                          done: done, doneAt: date, via: nil, url: nil, savedAt: "2025·12·31")
+    }
+
+    @Test func scopesYearsAndKeepsUndatedOnlyInAll() {
+        let items = [item(1, 2025), item(2, 2026), item(3, nil), item(4, 2026, done: false)]
+        #expect(AchievementHistory.items(items, scope: .year(2025)).map(\.id) == [1])
+        #expect(AchievementHistory.items(items, scope: .year(2026)).map(\.id) == [2])
+        #expect(AchievementHistory.items(items, scope: .year(2024)).isEmpty)
+        #expect(AchievementHistory.items(items, scope: .all).map(\.id) == [2, 1, 3])
+    }
+
+    @Test func stableOrderingAndLargeListPreserveContent() {
+        let items = (1...2000).reversed().map { item($0, 2026) }
+        let history = AchievementHistory.items(items, scope: .all)
+        #expect(history.map(\.id) == Array(1...2000))
+        #expect(history.first?.title == items.last?.title)
+        #expect(items.first?.id == 2000) // no mutation or truncation
+    }
+
+    @Test func undoDeleteAndUndoneAreImmediatelyReflected() {
+        var items = [item(1, 2026), item(2, 2026)]
+        let deleted = items.removeFirst()
+        #expect(AchievementHistory.items(items, scope: .all).map(\.id) == [2])
+        items.append(deleted)
+        #expect(AchievementHistory.items(items, scope: .all).count == 2)
+        items[0].done = false
+        #expect(AchievementHistory.items(items, scope: .all).map(\.id) == [1])
+        items[0].done = true
+        #expect(AchievementHistory.items(items, scope: .all).count == 2)
+    }
+
+    @Test func missingAndMalformedLegacyDatesKeepExistingDecodeBehavior() throws {
+        for field in ["", ",\"doneAt\":\"invalid\""] {
+            let json = "{\"id\":1,\"title\":\"旧記録\",\"priority\":\"maybe\",\"seasons\":[],\"done\":true,\"savedAt\":\"2025·12·31\"\(field)}"
+            let item = try JSONDecoder().decode(BucketItem.self, from: Data(json.utf8))
+            #expect(item.doneAt == BucketItem.parseSavedAt("2025·12·31"))
+            #expect(AchievementHistory.items([item], scope: .year(2025)).count == 1)
+            let roundTrip = try JSONDecoder().decode(BucketItem.self, from: JSONEncoder().encode(item))
+            #expect(roundTrip == item)
+        }
+    }
+}
