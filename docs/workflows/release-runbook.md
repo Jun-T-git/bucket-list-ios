@@ -87,6 +87,8 @@ xcodebuild -exportArchive -archivePath /tmp/wishes-release/Wishes.xcarchive \
 archiveのversion/build・本体/拡張の署名とソースmanifestを照合し、export時のソース書換えがないことも確認する。
 upload成功だけで配布済みとせず、ASCのVALID・ベータ状態・既存内部グループへのbuild登録と既存テスター所属を確認する。
 固定commit・版/build・確認範囲・試し方・未実機等の限界は所管Issueに集約する。本番提出は別の具体指示を要する。
+Xcodeアカウント経由で `Failed to Use Accounts` になった場合も、まずASCでupload済みbuildの有無を照合する。未uploadなら既存 `scripts/asc.env` と鍵管理元を用い、`xcodebuild -exportArchive` の `-authenticationKeyPath` / `-authenticationKeyID` / `-authenticationKeyIssuerID` に既存API認証を渡して同じarchiveを配信できる。鍵の内容・トークンを表示/保存せず、認証の失敗を成功に置き換えない。
+配布版の入力SHA・archive照合・検証と配布状態は `docs/releases/<version>-<build>/manifest.json` へ恒久保存し、所管Issueから固定commitへリンクする。工程・観測・残件はIssueだけを更新する。
 
 ### 従来スクリプト（入力を書き換えるため上記フローでは使用しない）
 
