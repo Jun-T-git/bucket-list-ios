@@ -41,7 +41,7 @@ BucketList/
                           AI suggestion can be overwritten without deleting
   Capture/              — URL → やりたいこと候補 (on-device, no backend)
     URLMetadata.swift       — normalize / SourceType / SSRF guard / redirects /
-                            LinkPresentation + capped HTML·OGP → LinkMetadata
+                            bounded HTML·OGP → LinkMetadata
     ItemCandidate.swift     — editable candidate model + tag validation
     OnDeviceModel.swift     — Foundation Models (@Generable, iOS 26, weak-linked)
     RuleBasedCandidate.swift— keyword fallback when the model is unavailable
@@ -99,8 +99,8 @@ WidgetExtension/        — ホームウィジェットターゲット (コア�
   設定 › 自動分類 toggle (off = manual pickers, no AI drafts).
 - **URL → candidate (on-device)** — paste a link in the add sheet or share one
   to the app, and `Capture/` turns it into an editable "やりたいこと" candidate
-  (rewritten title + tags). Metadata comes from LinkPresentation (+ capped
-  HTML/OGP only on miss); the draft comes from **Apple Foundation Models**
+  (rewritten title + tags). Metadata comes from one bounded HTML/OGP request (validated redirects,
+  256 KiB retained, six-second total deadline); the draft comes from **Apple Foundation Models**
   (on-device LLM, iOS 26 + Apple Intelligence) and falls back to the keyword
   rules otherwise. Nothing is sent to a backend. The title field selects-all on
   focus so the suggestion can be overwritten in one keystroke; tags/season/
