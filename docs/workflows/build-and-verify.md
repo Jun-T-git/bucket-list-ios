@@ -127,7 +127,8 @@ if all(arg in sys.argv for arg in ['-v', '-E', '-dM']):
             data = data[count:]
         os.close(fd)
     if result.returncode < 0:
-        signal.signal(-result.returncode, signal.SIG_DFL)
+        if -result.returncode not in (signal.SIGKILL, signal.SIGSTOP):
+            signal.signal(-result.returncode, signal.SIG_DFL)
         os.kill(os.getpid(), -result.returncode)
     sys.exit(result.returncode)
 os.execv(real, [real, *sys.argv[1:]])
