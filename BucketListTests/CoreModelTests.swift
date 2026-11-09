@@ -172,3 +172,140 @@ struct TimingEngineTests {
         }
     }
 }
+
+struct FilterCountsTests {
+    private func item(_ id: Int, _ priority: Priority, _ seasons: [SeasonTag],
+                      _ tags: [String], done: Bool = false) -> BucketItem {
+        BucketItem(id: id, title: "t", priority: priority, seasons: seasons,
+                   tags: tags, meta: "", done: done, via: nil, url: nil,
+                   savedAt: "2026·07·05")
+    }
+
+    @Test func emptyListKeepsSelectableTagsAndStatusesAtZero() {
+        let counts = Filters().counts(in: [], allTags: Tags.defaults)
+        #expect(counts.priority.isEmpty)
+        #expect(counts.seasons.isEmpty)
+        #expect(counts.tags == Dictionary(uniqueKeysWithValues: Tags.defaults.map { ($0.key, 0) }))
+        #expect(counts.statuses == [.open: 0, .done: 0])
+    }
+
+    @Test func eachBadgeIgnoresOnlyItsOwnAxis() {
+        let items = [
+            item(1, .top, [.season(.summer)], ["food"]),
+            item(2, .maybe, [.season(.summer)], ["food"]),
+            item(3, .top, [.season(.winter)], ["food"]),
+            item(4, .top, [.season(.summer)], ["travel"]),
+            item(5, .top, [.season(.summer)], ["food"], done: true),
+        ]
+        let filters = Filters(priority: [.top], seasons: [.season(.summer)],
+                              tags: ["food"], statuses: [.open])
+        let counts = filters.counts(in: items, allTags: Tags.defaults)
+        #expect(counts.priority == [.top: 1, .maybe: 1])
+        #expect(counts.seasons == [.season(.summer): 1, .season(.winter): 1])
+        #expect(counts.tags["food"] == 1)
+        #expect(counts.tags["travel"] == 1)
+        #expect(counts.statuses == [.open: 1, .done: 1])
+    }
+
+    // Compare all combinations against independent per-axis counts, including
+    // legacy duplicates, empty seasons, unknown tags and multi-select OR rules.
+    @Test func combinationsPreserveBadgeSemantics() {
+        let items = [
+            item(1, .top, [], ["food"]),
+            item(2, .maybe, [.season(.summer), .season(.summer)], ["travel", "food"]),
+            item(3, .someday, [.any, .season(.winter)], ["legacy"], done: true),
+            item(4, .top, [.season(.summer), .season(.winter)], [], done: true),
+        ]
+        let priorities: [Set<Priority>] = [[], [.top], [.maybe, .someday]]
+        let seasons: [Set<SeasonTag>] = [[], [.any], [.season(.summer)], [.any, .season(.winter)]]
+        let tags: [Set<String>] = [[], ["food"], ["travel", "legacy"], ["missing"]]
+        let statuses: [Set<ItemStatus>] = [[], [.open], [.done]]
+        for priority in priorities {
+            for season in seasons {
+                for tag in tags {
+                    for status in statuses {
+                        let filters = Filters(priority: priority, seasons: season, tags: tag, statuses: status)
+                        let actual = filters.counts(in: items, allTags: Tags.defaults)
+                        func matches(_ item: BucketItem, ignoring axis: Int) -> Bool {
+                            (axis == 0 || priority.isEmpty || priority.contains(item.priority)) &&
+                            (axis == 1 || season.isEmpty || !season.isDisjoint(with: item.normalizedSeasons)) &&
+                            (axis == 2 || tag.isEmpty || !tag.isDisjoint(with: item.tags)) &&
+                            (axis == 3 || status.isEmpty || status.contains(item.done ? .done : .open))
+                        }
+                        for p in Priority.order {
+                            #expect(actual.priority[p, default: 0] == items.filter {
+                                $0.priority == p && matches($0, ignoring: 0)
+                            }.count)
+                        }
+                        for s in [SeasonTag.any] + Season.order.map(SeasonTag.season) {
+                            #expect(actual.seasons[s, default: 0] == items.filter {
+                                $0.normalizedSeasons.contains(s) && matches($0, ignoring: 1)
+                            }.count)
+                        }
+                        for t in Tags.defaults.map(\.key) + ["legacy"] {
+                            #expect(actual.tags[t, default: 0] == items.filter {
+                                $0.tags.contains(t) && matches($0, ignoring: 2)
+                            }.count)
+                        }
+                        for s in ItemStatus.allCases {
+                            #expect(actual.statuses[s] == items.filter {
+                                ($0.done ? ItemStatus.done : .open) == s && matches($0, ignoring: 3)
+                            }.count)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+// Report history is a read-only view over the existing store. In particular,
+// legacy timestamps remain approximations, and no schema migration is needed.
+struct AchievementHistoryTests {
+    private func item(_ id: Int, _ year: Int?, done: Bool = true) -> BucketItem {
+        let date = year.flatMap { Clock.calendar.date(from: DateComponents(year: $0, month: 1, day: 1)) }
+        return BucketItem(id: id, title: String(repeating: "長い思い出", count: 30),
+                          priority: .maybe, seasons: [.any], tags: [], meta: "",
+                          done: done, doneAt: date, via: nil, url: nil, savedAt: "2025·12·31")
+    }
+
+    @Test func scopesYearsAndKeepsUndatedOnlyInAll() {
+        let items = [item(1, 2025), item(2, 2026), item(3, nil), item(4, 2026, done: false)]
+        #expect(AchievementHistory.items(items, scope: .year(2025)).map(\.id) == [1])
+        #expect(AchievementHistory.items(items, scope: .year(2026)).map(\.id) == [2])
+        #expect(AchievementHistory.items(items, scope: .year(2024)).isEmpty)
+        #expect(AchievementHistory.items(items, scope: .all).map(\.id) == [2, 1, 3])
+    }
+
+    @Test func stableOrderingAndLargeListPreserveContent() {
+        let items = (1...2000).reversed().map { item($0, 2026) }
+        let history = AchievementHistory.items(items, scope: .all)
+        #expect(history.map(\.id) == Array(1...2000))
+        #expect(history.first?.title == items.last?.title)
+        #expect(items.first?.id == 2000) // no mutation or truncation
+    }
+
+    @Test func undoDeleteAndUndoneAreImmediatelyReflected() {
+        var items = [item(1, 2026), item(2, 2026)]
+        let deleted = items.removeFirst()
+        #expect(AchievementHistory.items(items, scope: .all).map(\.id) == [2])
+        items.append(deleted)
+        #expect(AchievementHistory.items(items, scope: .all).count == 2)
+        items[0].done = false
+        #expect(AchievementHistory.items(items, scope: .all).map(\.id) == [1])
+        items[0].done = true
+        #expect(AchievementHistory.items(items, scope: .all).count == 2)
+    }
+
+    @Test func missingAndMalformedLegacyDatesKeepExistingDecodeBehavior() throws {
+        for field in ["", ",\"doneAt\":\"invalid\""] {
+            let json = "{\"id\":1,\"title\":\"旧記録\",\"priority\":\"maybe\",\"seasons\":[],\"done\":true,\"savedAt\":\"2025·12·31\"\(field)}"
+            let item = try JSONDecoder().decode(BucketItem.self, from: Data(json.utf8))
+            #expect(item.doneAt == BucketItem.parseSavedAt("2025·12·31"))
+            #expect(AchievementHistory.items([item], scope: .year(2025)).count == 1)
+            let roundTrip = try JSONDecoder().decode(BucketItem.self, from: JSONEncoder().encode(item))
+            #expect(roundTrip == item)
+        }
+    }
+}

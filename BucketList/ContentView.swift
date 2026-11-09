@@ -4,6 +4,7 @@ struct ContentView: View {
     @EnvironmentObject var store: AppStore
 
     @State private var addOpen = false
+    @State private var historyOpen = false
     @State private var editingItem: BucketItem? = nil
     @State private var openItem: BucketItem? = nil
     // A widget deep link that arrived while an edit sheet was open — applied once
@@ -44,7 +45,19 @@ struct ContentView: View {
                         onOpenOptions: { optionsOpen = true }
                     )
                 case .records:
-                    ReportView()
+                    ReportView(
+                        onTap: { item in openItem = item },
+                        onAdd: { editingItem = nil; addOpen = true },
+                        historyOpen: $historyOpen,
+                        onHistoryDismiss: { item in
+                            if let id = pendingOpenID {
+                                pendingOpenID = nil
+                                presentItem(id: id)
+                            } else if let item {
+                                openItem = item
+                            }
+                        }
+                    )
                 case .settings:
                     SettingsView()
                 }
@@ -111,6 +124,11 @@ struct ContentView: View {
             // until the edit sheet is closed on the user's own terms.
             if addOpen {
                 pendingOpenID = id
+            } else if historyOpen {
+                // A widget tap also waits for the report's list sheet to close.
+                // Keep the report mounted until its onDismiss hands back control.
+                pendingOpenID = id
+                historyOpen = false
             } else {
                 presentItem(id: id)
             }

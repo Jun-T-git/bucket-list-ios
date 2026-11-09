@@ -58,7 +58,41 @@ App Store Connect → **マイApp** → **＋** → 新規App:
 
 ## 6. ビルドをアップロード
 
-**推奨: スクリプトで一括**（型チェック→ビルド番号+1→アーカイブ→アップロード。スキル `/deploy-testflight` でも同じ）:
+共通初回価値の導入境界を設定する前に、App Store Connect の過去全バージョン・全配布ビルドの
+CFBundleVersionを監査する。マーケティング版をまたいでbuild番号がリセット/再利用されている可能性があるため、
+「現在10なので次11」だけでは新規取得の証拠にならない。過去の全配布値を数値dot区切り比較で上回る未使用の
+導入buildを選び、その値を本体Info.plistの文字列 `CommonMeasurementFirstBuild` に設定する。
+以後は全マーケティング版でCFBundleVersionを単調増加させ、境界を固定し、番号を下げたり再利用しない。
+この履歴は今回未監査のため境界は未設定のまま維持し、初回価値を収集しない。公開前提を確認できない間は有効化しない。
+
+### 固定ソースからの配信（HQ経由、2026-11-04以降）
+
+ビルド前に全ターゲットのversion/buildを確定し、型チェック・差分検査、commit・push、remote ref/SHA一致を確認する。
+main `/docs` は本番Pagesの公開元なので、未承認のmain pushは行わず、副作用を確認した専用branchに保存する。
+Appleの配布履歴を全ページ確認し、未使用のbuild番号を選ぶ。既存build/他セッションとの競合を先に確認する。
+
+下記の従来スクリプトは実行中にpbxprojを書き換えるため、この固定版フローでは使わない。
+変更後入力を固定・保存する前のarchiveをアップロードしない。
+型チェック→シミュレータbuild→tests・必要な独立レビュー・実操作を確認した固定版で、手動のarchive/exportを使う。
+
+```sh
+xcodebuild -project BucketList.xcodeproj -scheme BucketList \
+  -destination 'generic/platform=iOS' -configuration Release \
+  -archivePath /tmp/wishes-release/Wishes.xcarchive -allowProvisioningUpdates archive
+xcodebuild -exportArchive -archivePath /tmp/wishes-release/Wishes.xcarchive \
+  -exportOptionsPlist scripts/ExportOptions.plist \
+  -exportPath /tmp/wishes-release/export -allowProvisioningUpdates
+```
+
+archiveのversion/build・本体/拡張の署名とソースmanifestを照合し、export時のソース書換えがないことも確認する。
+upload成功だけで配布済みとせず、ASCのVALID・ベータ状態・既存内部グループへのbuild登録と既存テスター所属を確認する。
+固定commit・版/build・確認範囲・試し方・未実機等の限界は所管Issueに集約する。本番提出は別の具体指示を要する。
+Xcodeアカウント経由で `Failed to Use Accounts` になった場合も、まずASCでupload済みbuildの有無を照合する。未uploadなら既存 `scripts/asc.env` と鍵管理元を用い、`xcodebuild -exportArchive` の `-authenticationKeyPath` / `-authenticationKeyID` / `-authenticationKeyIssuerID` に既存API認証を渡して同じarchiveを配信できる。鍵の内容・トークンを表示/保存せず、認証の失敗を成功に置き換えない。
+配布版の入力SHA・archive照合・検証と配布状態は `docs/releases/<version>-<build>/manifest.json` へ恒久保存し、所管Issueから固定commitへリンクする。工程・観測・残件はIssueだけを更新する。
+
+### 従来スクリプト（入力を書き換えるため上記フローでは使用しない）
+
+型チェック→ビルド番号+1→アーカイブ→アップロードを一括で行う:
 
 ```sh
 scripts/release-testflight.sh                  # ビルド番号を +1 して配信

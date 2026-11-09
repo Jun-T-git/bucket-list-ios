@@ -56,9 +56,14 @@
 | `ItemStatus` / `YearScope` | 状態フィルタ / 年スコープ（`.all` / `.year(Int)`） |
 | `Clock` | ライブな「今日」。`Clock.override` でスクショ/プレビュー用に日付固定。`isWeekendish` 等の時間フレーム判定 |
 
+フィルターの判定と軸別件数は値型 `Filters` に集約。`AppStore.filtered()` と `filterCounts()` が共有する。
+`Filters.counts(in:allTags:)` は項目を1回走査し、各軸ではその軸自身の選択だけを除外して数える。
+達成年スコープは従来どおりバッジ集計に適用しない。空の季節は「いつでも」、重複した季節は1回として扱う。
+
 ## Models.swift 内のロジック（モデル以外）
 
-- フィルタ/ソート拡張：`nowScore`・`seasonRank`・軸横断カウント `filterCounts`。
+- フィルタ/ソート拡張：`TimingEngine.nowScore`・`seasonRank`・軸横断カウント `Filters.counts`
+  （本体からは `AppStore.filterCounts()` 経由）。
 - `Classifier` … タイトル入力中に優先度/季節/タグを即時下書きする**正規表現ベースのオフライン分類器**
   （コンパイル済み正規表現キャッシュあり）。設定の自動分類 OFF を尊重。
 - `NotificationPlanner` … 特定アイテムを名指しするローカル通知。純関数 `plan(tweaks:items:now:)` が
@@ -89,5 +94,5 @@
 純粋関数的で UI に依存しないため、[テスト](../workflows/build-and-verify.md)の主対象：
 `Classifier` / `TimingEngine`（`Clock.override` で分岐）/ `NotificationPlanner.plan` / `SeasonPlan.pending` /
 `SeasonTag.from(key:)`＋`normalizedSeasons` /
-filter・sort（`nowScore`/`seasonRank`/`filterCounts`）/ 寛容 `Codable`（`LossyArray`/`StoreLoad`）/
+filter・sort（`TimingEngine.nowScore`/`seasonRank`/`Filters.counts`）/ 寛容 `Codable`（`LossyArray`/`StoreLoad`）/
 `TagValidator`（[capture-pipeline](capture-pipeline.md)）。

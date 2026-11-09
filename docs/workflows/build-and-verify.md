@@ -89,3 +89,58 @@ UI・哲学は視覚依存（[設計原則§1–3](../philosophy/02-設計原則
   手順の全体は [release-runbook.md](release-runbook.md#6-ビルドをアップロード)。
 - **App Store 審査提出（本番）**：`scripts/submit-appstore.py`（スキル `/submit-appstore`）。
   [release-runbook.md §7](release-runbook.md#7-審査へ提出)。
+
+
+## レポートの振り返りを変更した時
+
+架空データで、年越し/全期間/0件/大量/長文/旧年月補完を照合する。グラフは累計で選択年へのスクロール、件数と履歴は期間別。
+今年のサマリー・目標・これからの季節は期間選択に連動させない。最後の記録を取消/削除した年も選択チップを残す。
+一覧→既存詳細→編集/取消/削除/undo、0件→共通追加、季節候補→詳細、再起動・拡張からの追記→前面復帰を実操作する。
+小画面・Dynamic Type最大・アクセシビリティのラベル/順序も確認する。
+Widgetから履歴シートへ割り込む場合は、一覧のdismiss完了後にルート詳細を開く。
+`wishes://` は一般URLスキームとして登録していないため、`simctl openurl` の成功を前提にせず、実Widgetか適切な統合テストで確認する。
+シミュレータで確認できない実機のURL推論・通知配達等は、確認済みへ読み替えず所管Issueに残す。
+
+## clang環境検査がpipe待ちで停止する場合だけの回避
+
+2026-11-10、Xcode 26.6（17F113、iOS Simulator SDK 26.5）の `clang -v -E -dM` 検査が `write()` 待ちとなり、
+アプリのコンパイル前に停止した。直接実行でstdout/stderrを並行回収すると成功し、通常実行と
+`-quiet` の再試行で同じ停止を確認した。逐次回収のdeadlockを修正した
+[SwiftBuild #1315](https://github.com/swiftlang/swift-build/pull/1315)と整合する現象であり、
+アプリコードのコンパイル失敗とは区別する。全体再起動や無関係なプロセスの終了は行わない。
+
+同じ条件を確認した時だけ、次の `/tmp` 補助を作り、その実行に `CC` / `CXX` を明示する。
+検査の両出力を並行回収し、stdoutの書出し後にcloseしてからstderrを書き出す。出力の省略・
+改変はせず、終了値とsignalを保持する。通常コンパイルは元のclangへ同じ引数で `execv` する。
+
+```sh
+mkdir -p /tmp/wishes-clang-probe
+cat > /tmp/wishes-clang-probe/clang <<'PY'
+#!/usr/bin/python3
+import os, signal, subprocess, sys
+real = '/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/' + os.path.basename(sys.argv[0])
+if all(arg in sys.argv for arg in ['-v', '-E', '-dM']):
+    result = subprocess.run([real, *sys.argv[1:]], capture_output=True)
+    for fd, data in [(1, result.stdout), (2, result.stderr)]:
+        while data:
+            count = os.write(fd, data)
+            data = data[count:]
+        os.close(fd)
+    if result.returncode < 0:
+        if -result.returncode not in (signal.SIGKILL, signal.SIGSTOP):
+            signal.signal(-result.returncode, signal.SIG_DFL)
+        os.kill(os.getpid(), -result.returncode)
+    sys.exit(result.returncode)
+os.execv(real, [real, *sys.argv[1:]])
+PY
+chmod +x /tmp/wishes-clang-probe/clang
+cp /tmp/wishes-clang-probe/clang /tmp/wishes-clang-probe/clang++
+# §2/§3のxcodebuildの末尾へ追加（build/testの指定は維持）
+# CC=/tmp/wishes-clang-probe/clang CXX=/tmp/wishes-clang-probe/clang++
+```
+
+使用前に同じSDK/言語/引数で直接clangと補助を `subprocess.run(..., capture_output=True)` し、
+stdout/stderrのバイト列と終了値が完全一致することを検証する。補助のSHA-256、比較結果、
+実際のコマンド、ビルド/テスト結果を当該作業の証拠に残す。検査の停止回避だけで品質完了にしない。
+これは実行単位の回避であり、プロジェクト/CI/通常compiler設定を恒久変更しない。ツール更新や
+実行環境の再起動後はoverrideなしで再試行し、停止しなければ補助を使わず `/tmp` から削除する。

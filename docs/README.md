@@ -67,3 +67,9 @@ docs/
 
 > つまり「Wishes（製品）＝ BucketList（開発名）＝ バケットリスト（ジャンル）」は同一物の別レイヤの呼称。
 > ユーザー向け文言は **Wishes**、コード/ビルドは **BucketList**、思想の議論は **バケットリスト** を使う。
+
+## 固定配布版の証拠
+
+`releases/<version>-<build>/manifest.json` は、一時作業ログではなく配布ソース・入力SHA・archive・検証/配布結果を結ぶ恒久記録です。過去版は上書きせず、訂正は理由と履歴を残します。画面証拠には架空データと対象版を明示します。現在の工程・観測・残件は所管Issueを正本とし、ここに状態台帳を複製しません。
+
+- [1.1.2 (13) の配布証拠](releases/1.1.2-13/manifest.json) — [Story #4](https://github.com/Jun-T-git/bucket-list-ios/issues/4)。

@@ -19,7 +19,9 @@ URL
 
 ### 1. 正規化 + 安全性（`URLMetadata.swift`）
 `URLSafety.normalized` / `isSafe`：ベストエフォートの SSRF ガード（http(s) のみ、localhost/`.local`/
-プライベートIP帯を弾く）。不正なら `ItemCandidate.fallback`。
+プライベートIP帯・IPv6ローカル/mapped IPv4・曖昧なIPv4表記を弾く）。ホスト名の末尾ドットも検査する。
+DNS解決先の検証とDNS rebinding対策は対象外であり、公開ホスト名が私設アドレスへ解決される場合は防げない。
+不正なら `ItemCandidate.fallback`。
 
 ### 2. モデル暖機
 `OnDeviceModel.prewarm()` を fetch と並行で走らせ、推論コストを取得待ちに重ねる。
@@ -27,9 +29,13 @@ URL
 ### 3. メタデータ取得（`URLMetadata.swift`）
 `MetadataFetcher.fetch`：
 - `SourceType.detect` … googleMaps / instagram / tiktok / x / youtube / web を判別。
-- 短縮URLは redirect 上限付き `RedirectGuard` で展開。
-- タイトルは `LinkPresentation`（`LPMetadataProvider`）。欠けた分だけ**サイズ上限（256KB）の HTML/OGP head**
-  を読んで補う。
+- 全URLを単一の `URLSessionDataDelegate` によるHTML/OGP取得で処理。各redirect先を安全性検査し、最大5回。
+- 保持する応答は最大256 KiB。Rangeが無視されてもdelegateで上限に達した時点、または `</head>` で通信を取消す。
+- リクエスト全体の期限は6秒（redirect・継続受信も含む）。呼出元のTask取消も通信を直ちに停止する。
+- HTTP失敗・非HTML・取得失敗・期限超過は、元URLや安全に確定した最終URL・Maps場所名を残し、候補生成を継続。
+- `LinkPresentation` の独立取得は使わない（redirect/受信上限を同じポリシーで制御できないため）。
+- OGP/HTML titleからYouTube等のタイトルも取得し、canonicalは最終URL基準で解決・安全性検査する。
+- HTMLでタイトルを返さないページ等ではLinkPresentationより取得情報が減る可能性がある。2026-11-10の公開URL単回比較でもYouTube/Mapsのタイトル減を確認（MapsのURL由来地名は保持）。サイト全体の取得率は未測定であり、共有テキスト・メモと既存候補生成・手入力で補う。
 - Google Maps は `GoogleMapsURL.placeName` で URL から地名を抽出。
 - 返すのは `LinkMetadata`。**ページ本文は決してモデルに渡さない**（この事実だけを渡す）。
 

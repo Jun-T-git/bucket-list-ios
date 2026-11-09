@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "version": "1.1.2",
+  "build": "13",
+  "source_commit": "1c34a4a5b98f679d8ddbee85952cd71647e1b43b",
+  "source_ref": "codex/wishes-report-4-20261104",
+  "issue": "https://github.com/Jun-T-git/bucket-list-ios/issues/4",
+  "checked_at": "2026-11-04T23:30:28+09:00",
+  "tools": {
+    "xcode": "26.6 (17F113)",
+    "simulator": "iPhone 17e / iOS 26.5"
+  },
+  "source_sha256": {
+    "BucketList.xcodeproj/project.pbxproj": "376905328d095fee398d735b60064c7da24fe982e478cead8c8030cd781101c1",
+    "BucketList.xcodeproj/project.xcworkspace/contents.xcworkspacedata": "7f3b00b5c3fdb45242d7b87e1e5c4e25d1fa8129a16c94295ecc4e8ea2235c5f",
+    "BucketList.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved": "08b829c1443e88523d2708a449fe6d46a353bce504006778fa847652e6ee2d2d",
+    "BucketList.xcodeproj/xcshareddata/xcschemes/BucketListTests.xcscheme": "bec7ed689937f10099bcb965e91ad11a24313b395ed86f3f3e6c40ab062a6acd",
+    "BucketList/AddEditSheet.swift": "aa9f51754b0af1afdb275e43395cda38ccf5cc5701ce0b23b285e56db8ccefd0",
+    "BucketList/Analytics.swift": "beecf417a040585bc8e1c7b05461380005ff0bdf0171a38181411c4c7d1804ee",
+    "BucketList/Assets.xcassets/AccentColor.colorset/Contents.json": "f1d3bdb613ddebcb51db80b754b827154a10ccb4790499fe024aa834642bf32e",
+    "BucketList/Assets.xcassets/AppIcon.appiconset/AppIcon.png": "f104707275145241b4ccb6aacaae7e4076fe2b56ec07868d6e2e8a7b49cc7a46",
+    "BucketList/Assets.xcassets/AppIcon.appiconset/Contents.json": "3725fefca1cc2f15dcff52b03b7db47884c8141e5be1d4e559367b76117f8c48",
+    "BucketList/Assets.xcassets/Contents.json": "0fd49ba3c3585c709678e0046a821c3c60685ec7063720d30d3a3448be3a208b",
+    "BucketList/BucketList.entitlements": "533ff678503f954140f9d02bea48a8de48fcc8132f95a9fd92615ea0e38cad96",
+    "BucketList/BucketListApp.swift": "e724c3d054eaa63beba324b97d321b3e5c6acb5497de76f0abae360dc0e2d6e3",
+    "BucketList/Capture/CandidateGenerator.swift": "501bdb2c6939260e916dcd40829b358e423331c92d124fc35bfda9e9caebc58a",
+    "BucketList/Capture/ItemCandidate.swift": "ab1340f91628f8324deb34f34102c99608d1f69aa69ddd1cff2559e0d60aec06",
+    "BucketList/Capture/OnDeviceModel.swift": "bb7bdf96305da4ca0fab5f4750ca921183d2d4348a42a35d12123db1bc097cd9",
+    "BucketList/Capture/RuleBasedCandidate.swift": "ec76319517a379c1b7f7aeff08ca62a9b61ea4711a87933a508e7e49245a0e5f",
+    "BucketList/Capture/URLMetadata.swift": "fa03620f17013846c3593a03c27e9884cd87df094e433bc2839a6237a2cd3e9b",
+    "BucketList/Components.swift": "27abc93c9afccf70b84b8200e75f08c0621667751a3abe31db3eb498495d28ff",
+    "BucketList/ContentView.swift": "7ff52b8899b90bc00bf3925359138b0f17f09d0517e0375af161603ef9494748",
+    "BucketList/DetailSheet.swift": "5d375a2de9a3744433ab994b5fb0a0c6407366fd77b86da601a19e5ebb38a41a",
+    "BucketList/FilterSheet.swift": "83b0470bc5f762931906a859b2eda6d36ed73addfd1c41b05d87871406e48078",
+    "BucketList/GoogleService-Info.plist": "ac6e42eb1fee29b259eac93bb0647c853fb3dfba6c1fdbab4c1712b5bbcf2b37",
+    "BucketList/HomeView.swift": "fbd4bf8849b3aad76cf80f92bd6d8c8acbeaa51cba1a8da68dd1f8242523ea62",
+    "BucketList/Info.plist": "769ecac83a0c4bbf6125f649ef3baff75bdabdce93343e146210cf68de8f981a",
+    "BucketList/ItemForm.swift": "42295763ed1a6fceafe31da96adfb758e4b0d9ea70daa713bf60d34bb6ff236c",
+    "BucketList/Models.swift": "85affae2b4e696c063f1f4215059fceb26fa6485c3ebabe156fe70e0c6847547",
+    "BucketList/OnboardingView.swift": "8dbe2830e961ed2d73ad1c052e5800175ba5643c8ecf24810af2af7883b4639c",
+    "BucketList/PaywallView.swift": "e044da48de4d3536874b5ec3a6b5513276f92c120bf34210e629421b56e14cc4",
+    "BucketList/Preview Content/Preview Assets.xcassets/Contents.json": "0fd49ba3c3585c709678e0046a821c3c60685ec7063720d30d3a3448be3a208b",
+    "BucketList/PrivacyInfo.xcprivacy": "4e1eb6948efd5ab529527615a1f3e91b5e66d5e81742790754276da366dec7b6",
+    "BucketList/ProStore.swift": "57ebb7aafb7a4ae988d80339b017852c915ee9337048fb95521e52e4491dfb0f",
+    "BucketList/Products.storekit": "2e8c01c8559c7acfc52f289e5d4a661046d601a7c72aa30e1e1fd408cd81bce4",
+    "BucketList/ReportView.swift": "b421a88bba6108a3ed106cf5d2becffa159f2176ffc8dd4c62ddd27ec810ec84",
+    "BucketList/SelectAllTextField.swift": "f4be53061d4955d53fd5500e9e6094df008d2da064c2df6cab97a42df5b273ed",
+    "BucketList/SettingsView.swift": "032bba6709ed84de9f23410efd23fb8c55bb47a7f38ca76961695218bf32ac5c",
+    "BucketList/SplashView.swift": "b5ef3a64179b5d820116e7e63e957da699d4c2dacad4fd45811e39f5de8bf8b8",
+    "BucketList/Theme.swift": "0145c448052270bffaac4de3f6e74f1b0dbe25cc6187f8edce697bd84bc4fa97",
+    "ShareExtension/Info.plist": "223f8ae6ab8a7b9cf278692db86e800e7aeb58d4744599e51d85fd5cf285aee6",
+    "ShareExtension/PrivacyInfo.xcprivacy": "9f3e8fc6cfa7f13e84760a14be347f76a5ed2ec86507d7d4062906e521769b1a",
+    "ShareExtension/ShareComposeView.swift": "36655a09d1a9f63d7f90d9abd67238d28f3a93f9e63b3e2121fc5f325e573e36",
+    "ShareExtension/ShareExtension.entitlements": "533ff678503f954140f9d02bea48a8de48fcc8132f95a9fd92615ea0e38cad96",
+    "ShareExtension/ShareViewController.swift": "994817b0267111c8d6e501c6eb73813c18ec3debadff46e4371211bde862f090",
+    "WidgetExtension/Info.plist": "228e94e81164c1de524699514a01acb24031dfeef4c1a9bf3ad34a9efddd8afe",
+    "WidgetExtension/PrivacyInfo.xcprivacy": "1d8e0c58aacc1fe2c65f14822b2900fcec94bc74cca779e3c4a0d089faa1178e",
+    "WidgetExtension/WidgetExtension.entitlements": "533ff678503f954140f9d02bea48a8de48fcc8132f95a9fd92615ea0e38cad96",
+    "WidgetExtension/WishesWidget.swift": "b18c44b186de975ff1f50dc69000646d83797557a673117f297ff03d4e394086",
+    "WidgetExtension/WishesWidgetViews.swift": "1bd1cb44a1f6a0b0e0dae581f97acb26c92b17f0413ba7dc5220e2efacb8bfe1"
+  },
+  "archive_sha256": {
+    "Wishes": "873b097f29c419b61811d979d436a6ec069fa4b591dd5354280ee3350976cc66",
+    "Info.plist": "4c4271632bcb5b17cc1aa975d2437d7818e170b1ddbcb58939fc74c337848838",
+    "PlugIns/ShareExtension.appex/ShareExtension": "709541102a62ca2f41c37255f4a605979bc281bc218234936a2c9e4c39ed4b05",
+    "PlugIns/WidgetExtension.appex/WidgetExtension": "10054766eda4f47e721237daccd3a019b801fd562ecb1325fb077d1745d7fc66"
+  },
+  "validation": {
+    "typecheck": "passed",
+    "simulator_build": "passed",
+    "tests": {
+      "passed": 75,
+      "failed": 0,
+      "skipped": 0
+    },
+    "independent_review": "哲学PASS・静的コード指摘解消。最終ソース1c34a4aを再確認。",
+    "product_check": [
+      "年/全期間・年越し・最後の記録の取消後も選択年保持",
+      "一覧→既存詳細→編集取消、削除→undoと件数復元",
+      "0件→共通追加、季節候補→詳細",
+      "共有拡張のURL取得失敗→手入力保存、前面復帰で5件/達成2件/ID重複なし",
+      "2002件の全期間一覧とアクセシビリティScroll Down",
+      "最大Dynamic Type・長文折返し・AXラベル/ヒント",
+      "履歴を開いたままホームの実Widgetをタップ→対象詳細へ復帰",
+      "既存Analytics設定・アプリ内説明・公開Web/ストア申告の照合"
+    ],
+    "limitations": [
+      "物理端末・VoiceOver音声・通知の実配達・対応実機のFoundation Modelsは未確認。通知/URLロジックの既存テストは合格。",
+      "公開1.1.1(12)はASC/当時ソース記録を照合。歴史的archiveの完全再現は証明していない。",
+      "URLのexample.com取得は失敗し、案内に沿う手入力保存を確認。",
+      "今回の利用・継続・需要・正式収益/費用は未評価。"
+    ]
+  },
+  "distribution": {
+    "asc_build_id": "365c37ac-da4e-4dd7-ad38-c88caf3a37cc",
+    "processing_state": "VALID",
+    "internal_state": "IN_BETA_TESTING",
+    "internal_group": "開発テスト",
+    "internal_group_registered": true,
+    "existing_owner_admin_tester_count": 1,
+    "external_state": "READY_FOR_BETA_SUBMISSION",
+    "public_release": false
+  },
+  "warnings": [
+    "Xcodeアカウント経由export失敗。既存ASC API認証の再実行でupload/export成功。重複buildなし。",
+    "GoogleAdsOnDeviceConversion / GoogleAppMeasurement / GoogleAppMeasurementIdentitySupport のSDK dSYM不足警告。本体/両拡張dSYMと署名検証は確認。"
+  ],
+  "screenshots": {
+    "note": "専用シミュレータの架空データ。実利用者の記録ではない。",
+    "files": {
+      "widget-history-return.png": "96495334ca9b2f4eb11f5e9cd45519068ece42a52a44540e3c501e3ddb859a98",
+      "history.png": "66c0c24a146f5d36dc73c375dab46a505c43875e5062d0336190802e5e0b4a7c"
+    }
+  },
+  "observation": {
+    "start_date": "2026-11-04",
+    "first_evaluation": "2026-11-12T02:00:00+09:00",
+    "window_end": "2026-11-19T02:00:00+09:00",
+    "owner": "AI秘書 / Product・Data/Finance",
+    "next_operation": "既存集計と任意試用意見から見返せた/次を選べたを評価。標本不足は未評価として同Issueへ残す。"
+  }
+}

@@ -43,6 +43,7 @@ struct AddEditSheet: View {
     // Whether a URL reading was adopted (反映) in this sheet — reported with the
     // save so "typed by hand" and "filled by the reading" can be told apart.
     @State private var captureApplied = false
+    @State private var importOperation: Analytics.Operation?
 
     enum URLState { case idle, invalidFormat, generating, ok, failed, lowConfidence }
 
@@ -71,7 +72,7 @@ struct AddEditSheet: View {
     private var isDirty: Bool { signature() != initialSig }
 
     private func attemptClose() {
-        if isDirty { showDiscardConfirm = true } else { onClose() }
+        if isDirty { showDiscardConfirm = true } else { cancelImport(); onClose() }
     }
 
     // Keyword-classifier drafts that follow the title until the user picks.
@@ -149,7 +150,7 @@ struct AddEditSheet: View {
                     isGenerating: isGenerating,
                     preview: previewModel,
                     onApplyPreview: applyPreview,
-                    onDismissPreview: { pendingCandidate = nil },
+                    onDismissPreview: { pendingCandidate = nil; cancelImport() },
                     urlNotice: urlNotice,
                     autofocusTitle: !isEditing && !Screenshots.isOn
                 )
@@ -181,7 +182,7 @@ struct AddEditSheet: View {
         }
         .confirmationDialog("変更を破棄しますか？",
                             isPresented: $showDiscardConfirm, titleVisibility: .visible) {
-            Button("変更を破棄", role: .destructive) { onClose() }
+            Button("変更を破棄", role: .destructive) { cancelImport(); onClose() }
             Button("編集を続ける", role: .cancel) {}
         }
         .sheet(isPresented: $showPaywall) {
@@ -220,7 +221,16 @@ struct AddEditSheet: View {
 
     // MARK: URL → background AI reading
 
+    private func cancelImport() {
+        importOperation?.finish(.cancelled)
+        importOperation = nil
+    }
+
     private func handleUrlChanged(_ v: String) {
+        if v.trimmingCharacters(in: .whitespaces) != lastQueriedURL {
+            cancelImport()
+            captureApplied = false
+        }
         // 自動分類オフ時は URL の自動読み取り（AI補完）自体を行わないので、
         // モデルのウォームアップも走らせない。URL は手入力のリンクとして保存できる。
         if store.tweaks.autoClassify, !prewarmed, !v.trimmingCharacters(in: .whitespaces).isEmpty {
@@ -275,12 +285,17 @@ struct AddEditSheet: View {
         let memo = note
         let tags = store.allTags
         genTask?.cancel()
+        cancelImport()
+        let operation = isEditing ? nil : Analytics.Operation(.importItem)
+        importOperation = operation
         genTask = Task {
             let c = await CandidateGenerator.make(rawURL: raw, memo: memo, existingTags: tags)
+            guard !Task.isCancelled else { return }
             await MainActor.run {
                 // Only the result for the URL still in the field wins — drops
                 // stale results from a deleted / replaced URL.
-                guard raw == urlInput.trimmingCharacters(in: .whitespaces) else { return }
+                guard raw == urlInput.trimmingCharacters(in: .whitespaces),
+                      operation === importOperation else { return }
                 withAnimation(.easeInOut(duration: 0.2)) {
                     isGenerating = false
                     if c.readable && !c.shouldConfirm {
@@ -297,11 +312,13 @@ struct AddEditSheet: View {
                         pendingCandidate = nil
                         urlState = .lowConfidence
                         Haptics.warning()
+                        operation?.finish(.error, error: .validation)
                         Analytics.captureResult("low_confidence", source: "app")
                     } else {
                         pendingCandidate = nil
                         urlState = .failed
                         Haptics.warning()
+                        operation?.finish(.error, error: .unknown)
                         Analytics.captureResult("failed", source: "app")
                     }
                 }
@@ -382,18 +399,18 @@ struct AddEditSheet: View {
                 url: resolvedURL
             )
         } else {
-            let item = store.add(
+            // Saving without adopting the candidate explicitly ends that import.
+            let adoptedOperation = captureApplied && importOperation?.finished == false ? importOperation : nil
+            if adoptedOperation == nil { cancelImport() }
+            store.add(
                 title: title.trimmingCharacters(in: .whitespaces),
                 priority: resolvedPrio,
                 seasons: resolvedSeasons,
                 tags: resolvedTags,
                 meta: note.trimmingCharacters(in: .whitespaces),
                 via: resolvedURL != nil ? "URL" : nil,
-                url: resolvedURL
+                url: resolvedURL, fromCapture: captureApplied, importOperation: adoptedOperation
             )
-            Analytics.itemAdded(priority: item.priority, seasons: item.seasons,
-                                tagCount: item.tags.count, hasURL: item.url != nil,
-                                source: "app", fromCapture: captureApplied)
         }
         onClose()
     }

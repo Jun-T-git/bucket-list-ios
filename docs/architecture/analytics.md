@@ -113,3 +113,70 @@ Firebase コンソール → プロジェクト → **Analytics**（左メニュ
 - 拡張で発火するイベントは自動的にキュー経由（時刻は送出時になる＝日次集計には十分）。
 - App Store 側：App Privacy の申告（[release-runbook](../workflows/release-runbook.md#4-アプリ情報バージョン情報を入力)）と
   公開プライバシーポリシー（`docs/index.html` §6）を同期させる。
+
+
+## 4アプリ共通計測 v1（2026-10-17）
+
+`Analytics.Operation` がローカル操作トークンを持ち、受付時 `action_start`、終端時に1回だけ
+`action_result` を送る。ID・内容・URL・エラー文・認証情報は渡さない。固定パラメータは
+`schema_version=1`、`action_name`、`result=success/error/cancelled`。処理エラーは固定許可リスト
+`error_code`（現在の保存失敗は `storage`）。バックグラウンド/ユーザー確認待ち時間を除く継続時間を取得していないため、`duration_ms` は省略する。
+
+- `save_item`：手動保存受付から SharedStore 保存（本体は既存の1回リトライ含む）の確定まで。候補未採用・解析失敗後の手入力保存もこの操作。
+- `import_item`：新規追加で有効URL・自動分類・利用上限を検証後、実際の候補生成開始から採用した項目の保存確定まで同一token。本体は「反映」、共有拡張は自動採用。解析失敗は error=unknown、低信頼で候補を採用できない結果は error=validation。明示キャンセル・破棄・候補却下・URL置換・候補未採用の手動保存は cancelled。無効URLや処理を始めない入力ではstartしない。旧URLの非同期結果はtoken一致も検証し、再生成の結果を上書きしない。編集画面の解析は新規項目取り込みに数えない。
+  URLメタ情報取得や候補生成そのものは既存 `capture_result` の担当で、共通の保存成功に数えない。
+- `complete_item`：一覧・詳細・一括で未完了から完了へ変える時。実書込み成功のみ success。
+  一括は実際に遷移する各項目について1操作。既に完了した項目への再適用、達成日編集、未完了戻しは対象外。
+- `view_item`：既存項目詳細の初回表示で result=success のみ。SwiftUI 再描画/同一sheet再表示では再送しない。
+
+手動保存前のフォーム破棄では共通開始/取消を送らない。取り込み開始済みの明示破棄は取消にする。同期保存には実行中の取消UIがない。
+background/killを取消やエラーと推定しない。既存 `item_add` / `item_done` も実保存成功時だけに合わせた。
+失敗後のメモリとディスクの差、host/share同時編集の競合解決は既存ストアの挙動を維持する。
+
+### 初回価値の証拠・移行・重複抑止
+
+初回scope状態の作成は本体AppStore初期化/共有拡張開始の最初に行う。作成前のSharedStore
+（空の既存ファイルを含む/読取り不能）、旧item/tagデータ、engagement、onboarding、tweaks/prefs、
+Pro/無料取込履歴は existing の証拠として分類する。今回の初起動でも作られる移行済みフラグは証拠に使わない。
+証拠なしは unknown であり、空ストア/フラグ不在を新規とはしない。履歴snapshotの協調保存が成功する前は検証済み新規証拠も受理せず、初回価値を発火しない。snapshot未確定時の保存も消費し、後から初期化/証拠が成功しても遡及発火しない。この履歴snapshotを1回だけ記録し、
+計測導入後に同じscopeが作った履歴を後からexistingと誤判定しない。
+
+本体は計測同意ON・送信許可ビルド（DEBUGは明示opt-in）・Screenshots無効・`CommonMeasurementFirstBuild` 設定済みの場合だけ StoreKit `AppTransaction.shared` を読む。
+検証済み・production・bundleID一致・現在CFBundleVersionが導入build以上・originalAppVersionが導入build以上を
+すべて満たすと verifiedNew。originalAppVersionが境界より前ならexisting。数値dot区切りbuild版を比較し、
+マーケティング版は使用しない。sandbox、署名未検証、throw、形式不正、境界未設定、原取得buildが現在buildより大きい不整合はunknown。
+`refresh()`、購入、復元、認証UIは呼ばず、取得情報/ID/署名をAnalyticsへ送らない。
+既存履歴のexisting分類は新規証拠より優先する。
+
+**境界は未設定であり、新規対象の初回価値は現状未収集**。現在のbuild10を導入版と推定しない。
+最初の計測入りApp Store公開ビルドを確定する際、本体Info.plistに文字列 `CommonMeasurementFirstBuild` と
+そのCFBundleVersionを設定し、以後境界を維持する（今回版上げ/配布は行わない）。SDK first_openのcallbackは仮定しない。
+
+共通初回価値の導入境界を設定する前に、App Store Connect の過去全バージョン・全配布ビルドの
+CFBundleVersionを監査する。マーケティング版をまたいでbuild番号がリセット/再利用されている可能性があるため、
+「現在10なので次11」だけでは新規取得の証拠にならない。過去の全配布値を数値dot区切り比較で上回る未使用の
+導入buildを選び、その値を本体Info.plistの文字列 `CommonMeasurementFirstBuild` に設定する。
+以後は全マーケティング版でCFBundleVersionを単調増加させ、境界を固定し、番号を下げたり再利用しない。
+この履歴は今回未監査のため境界は未設定のまま維持し、初回価値を収集しない。公開前提を確認できない間は有効化しない。
+
+originalAppVersionはAppleアカウントが最初にアプリを取得した時のbuildであり、端末へのinstall日時ではない。
+対象は「署名済みの導入後取得かつ旧local履歴なし」のlocal scopeの部分集合で、旧取得アカウントの新端末/再インストールは除外され得る。
+人物の初取得や端末の初installを保証する指標ではない。共有拡張先行や証拠遅延/取得失敗ではunknownのまま最初の保存を
+消費し、後着proofでも発火しない。pending再送は持たず、正しい初保存の欠測を受容する。この遡及抑止は回帰テストで確認する。
+
+`FirstValueState` はApp Groupの `common-measurement-v1.json` にNSFileCoordinatorで読み書きを直列化し、
+原子的書込み成功後にのみイベントを渡す。旧UserDefaultsの消費済み状態を移行し、既存/不明/同意OFFの保存成功も
+消費する。後からON、アップデート、証拠後着でも再送しない。破損ファイル/共有コンテナ取得失敗/書込み失敗は
+発火せず、破損を空状態として上書きしない。SDKへの受け渡し直後のクラッシュを含む配送exactly-onceは保証しない。
+実機では旧版更新・初インストール・再インストール・共有先行・同意切替とGA4自動first_openとの対応を検証する。
+
+### GA4/集計の別工程
+
+イベントスコープのカスタム定義に `action_name`, `result`, `schema_version`、将来activation有効化時は
+`activation_key`, `definition_version`, `first_status` を登録。任意 `error_code`。operation/item IDは登録しない。
+通常収集後 Data API metadata の利用可能性を確認し、collector/MetricDefinitionsを更新する。
+`action_start` と `action_result AND result=success` は action_name別の期間全体totalUsersとして別問い合わせ。
+legacy `item_add/item_done` と共通イベントは同一操作を表すため、件数/UUを合算しない。期間/stream/identityを揃えて
+共通系列へ切り替え、移行期間の和集合UUが必要なら重複排除可能な探索で確認する。独立UU比を順序付き成功率や
+7日activation率にしない。first_open/session_start/user_engagementを手動送信しない。
+Proは現リリース無効、既存StoreKit経路に売上送信を追加しない。GA4設定/Sheet/Apps Scriptは本変更で操作しない。

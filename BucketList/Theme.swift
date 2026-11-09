@@ -37,19 +37,15 @@ enum Theme {
         // Green — structural hue. Slightly brighter in dark to keep contrast.
         static let green50  = SwiftUI.Color(light: 0xEEF7F1, dark: 0x0F2A1B)
         static let green100 = SwiftUI.Color(light: 0xD5EBDC, dark: 0x1A3D28)
-        static let green200 = SwiftUI.Color(light: 0xB3DCC0, dark: 0x28583D)
         static let green300 = SwiftUI.Color(light: 0x7AC495, dark: 0x53A47A)
         static let green500 = SwiftUI.Color(light: 0x2E8855, dark: 0x55C087)
         static let green700 = SwiftUI.Color(light: 0x195A37, dark: 0x83D9AC)
-        static let green900 = SwiftUI.Color(light: 0x0A2A1A, dark: 0xCDEED9)
 
         // Sun / Peach accents — decorative only. Toned for dark backgrounds.
         static let sun100  = SwiftUI.Color(light: 0xFFF1C2, dark: 0x3A2E10)
         static let sun300  = SwiftUI.Color(light: 0xFFDC6E, dark: 0xC9A035)
         static let sun500  = SwiftUI.Color(light: 0xF5C04A, dark: 0xE3B04A)
-        static let sun700  = SwiftUI.Color(light: 0xC99312, dark: 0xFFD466)
         static let peach100 = SwiftUI.Color(light: 0xFFE3D6, dark: 0x3A2218)
-        static let peach300 = SwiftUI.Color(light: 0xFFB89C, dark: 0x945236)
         static let peach500 = SwiftUI.Color(light: 0xFF9B7A, dark: 0xCB7257)
         static let peach700 = SwiftUI.Color(light: 0xD96A4A, dark: 0xFF9477)
 
@@ -64,10 +60,6 @@ enum Theme {
     }
 
     enum Font {
-        // The design calls for Zen Maru Gothic / Zen Kaku Gothic New / Klee One /
-        // JetBrains Mono. We map to system equivalents so the app builds without
-        // bundling fonts. Drop the .ttf files in the bundle and switch to
-        // .custom("Zen Maru Gothic", size:) when ready.
         // All roles resolve to the standard system font (San Francisco), and
         // every fixed design size is scaled with Dynamic Type via UIFontMetrics
         // — mapped to the closest built-in text style so the growth curve

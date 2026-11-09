@@ -323,60 +323,9 @@ enum WishLink {
 }
 
 // MARK: - Seed
-// Same 11 items used in the prototype, restated with native types.
+// Demo tags and curated data used by screenshot mode.
 
 enum Seed {
-    static let items: [BucketItem] = [
-        .init(id: 1,  title: "代々木公園のあの蕎麦屋に行く",
-              priority: .top, seasons: [.any],
-              tags: ["food"], meta: "東京・渋谷",
-              done: false, via: "X", url: "x.com/foodie_tk/...", savedAt: "2026·05·02"),
-        .init(id: 2,  title: "友達と銭湯",
-              priority: .top, seasons: [.season(.winter), .season(.fall)],
-              tags: ["leisure", "c-relax"], meta: "寒くなったら",
-              done: false, via: nil, url: nil, savedAt: "2026·05·09"),
-        .init(id: 3,  title: "春のうちに花見",
-              priority: .top, seasons: [.season(.spring)],
-              tags: ["leisure"], meta: "4月上旬",
-              done: true, doneAt: BucketItem.parseSavedAt("2026·04·05"),
-              via: nil, url: nil, savedAt: "2026·03·12"),
-        .init(id: 4,  title: "カニを食べる",
-              priority: .maybe,
-              seasons: [.season(.winter)],
-              tags: ["food", "travel"], meta: "北陸",
-              done: false, via: nil, url: nil, savedAt: "2026·01·20"),
-        .init(id: 5,  title: "富士山を見にドライブ",
-              priority: .maybe, seasons: [.season(.summer)],
-              tags: ["travel", "leisure"], meta: "晴れた日",
-              done: false, via: "YouTube", url: "youtu.be/fuji-drive", savedAt: "2026·04·18"),
-        .init(id: 6,  title: "一人で映画館",
-              priority: .top, seasons: [.any],
-              tags: ["leisure", "c-relax"], meta: "名画座",
-              done: false, via: nil, url: nil, savedAt: "2026·04·30"),
-        .init(id: 7,  title: "オーロラを見に行く",
-              priority: .someday,
-              seasons: [.season(.winter)],
-              tags: ["travel"], meta: "アイスランド",
-              done: false, via: "Safari",
-              url: "iceland-aurora.example.com/tours", savedAt: "2025·12·04"),
-        .init(id: 8,  title: "アメリカ西海岸を旅する",
-              priority: .someday, seasons: [.season(.summer)],
-              tags: ["travel"], meta: "長期休暇",
-              done: false, via: nil, url: nil, savedAt: "2025·11·22"),
-        .init(id: 9,  title: "小説を一冊書く",
-              priority: .someday, seasons: [.any],
-              tags: ["c-learn"], meta: "締切なし",
-              done: false, via: nil, url: nil, savedAt: "2025·10·08"),
-        .init(id: 10, title: "海でBBQ",
-              priority: .top,
-              seasons: [.season(.summer)],
-              tags: ["food", "leisure"], meta: "夏のうちに",
-              done: false, via: nil, url: nil, savedAt: "2026·05·14"),
-        .init(id: 11, title: "京都の紅葉",
-              priority: .maybe, seasons: [.season(.fall)],
-              tags: ["travel", "leisure"], meta: "11月中旬",
-              done: false, via: "YouTube", url: "youtu.be/kyoto-momiji", savedAt: "2025·10·30"),
-    ]
     static let customTags: [TagDef] = [
         TagDef(key: "c-learn", ja: "学び", builtin: false),
         TagDef(key: "c-relax", ja: "のんびり", builtin: false),
@@ -521,6 +470,63 @@ struct Filters: Equatable, Codable {
     }
 }
 
+// Pure filter evaluation shared by list filtering and badge counts.
+extension Filters {
+    func passes(filterPriority it: BucketItem) -> Bool {
+        self.priority.isEmpty || self.priority.contains(it.priority)
+    }
+    func passes(filterStatus it: BucketItem) -> Bool {
+        self.statuses.isEmpty || self.statuses.contains(it.done ? .done : .open)
+    }
+    func passes(filterSeasons it: BucketItem) -> Bool {
+        if self.seasons.isEmpty { return true }
+        let itemTags = it.normalizedSeasons
+        return self.seasons.contains { itemTags.contains($0) }
+    }
+    func passes(filterTags it: BucketItem) -> Bool {
+        self.tags.isEmpty || it.tags.contains(where: self.tags.contains)
+    }
+
+    // Each axis ignores its own selection. Year scope remains independent,
+    // matching the existing badges (which include all achievement years).
+    func counts(in items: [BucketItem], allTags: [TagDef]) -> (
+        priority: [Priority: Int], seasons: [SeasonTag: Int],
+        tags: [String: Int], statuses: [ItemStatus: Int]
+    ) {
+        var prio: [Priority: Int] = [:]
+        var seas: [SeasonTag: Int] = [:]
+        var tags: [String: Int] = [:]
+        for tag in allTags { tags[tag.key] = 0 }
+        var stat: [ItemStatus: Int] = [.open: 0, .done: 0]
+
+        for item in items {
+            let priorityOK = passes(filterPriority: item)
+            let seasonsOK = passes(filterSeasons: item)
+            let tagsOK = passes(filterTags: item)
+            let statusOK = passes(filterStatus: item)
+            if seasonsOK && tagsOK && statusOK {
+                prio[item.priority, default: 0] += 1
+            }
+            if priorityOK && tagsOK && statusOK {
+                // Count each season once even in legacy data with duplicate tags.
+                let itemSeasons = item.normalizedSeasons
+                for season in Season.order {
+                    let tag = SeasonTag.season(season)
+                    if itemSeasons.contains(tag) { seas[tag, default: 0] += 1 }
+                }
+                if itemSeasons.contains(.any) { seas[.any, default: 0] += 1 }
+            }
+            if priorityOK && seasonsOK && statusOK {
+                for key in item.tags { tags[key, default: 0] += 1 }
+            }
+            if priorityOK && seasonsOK && tagsOK {
+                stat[item.done ? .done : .open, default: 0] += 1
+            }
+        }
+        return (prio, seas, tags, stat)
+    }
+}
+
 // The user's persisted view configuration — sort field, sort direction, and
 // the active filter selection. Saved as a single blob so it survives launches.
 struct ViewPrefs: Codable, Equatable {
@@ -636,9 +642,12 @@ final class AppStore: ObservableObject {
     private var pendingUndoMany: [(item: BucketItem, index: Int)]?
     private var toastToken: UUID = UUID()
 
+    private(set) var lastDocumentSaveSucceeded = false
+
     private var nextId: Int
 
     init() {
+        Analytics.prepareFirstValueScope()
         // Move any pre-App-Group data into the shared suite, then into the
         // file-coordinated store, before the first read — so existing users
         // keep their list across both migrations.
@@ -652,7 +661,7 @@ final class AppStore: ObservableObject {
             loadedTags = doc.customTags
         case .absent:
             // Fresh install (or an emptied store that was never persisted): start
-            // with a genuinely empty list. Seed.items is prototype/demo content and
+            // with a genuinely empty list. Screenshot items are demo content and
             // must never ship to real users — a new user sees the empty state
             // ("＋ ボタンから追加できます") and the onboarding walkthrough instead.
             // (Screenshot mode below still overrides with curated demo data.)
@@ -721,13 +730,13 @@ final class AppStore: ObservableObject {
     // counter never collides with an id the Share Extension assigned while
     // the app was backgrounded.
     private static func nextId(after items: [BucketItem]) -> Int {
-        (items.map(\.id).max() ?? 0) + 1
+        (items.lazy.map(\.id).max() ?? 0) + 1
     }
 
     // Re-read the shared store and recompute the id counter. Called on
     // foreground (scenePhase .active) so items captured via the Share
-    // Extension show up without an app relaunch. Only writes back through the
-    // didSet observers, which re-persist identical data — harmless.
+    // Extension show up without an app relaunch. Unchanged documents skip
+    // the didSet observers and their persistence/widget refresh work.
     func reload() {
         switch SharedStore.load() {
         case .loaded(let doc):
@@ -795,11 +804,13 @@ final class AppStore: ObservableObject {
         }
         // Keep doneAt when un-checking so an accidental off/on round-trip
         // preserves the original date. The report only counts done items.
+        let operation = nowDone ? Analytics.Operation(.completeItem) : nil
         items = next
+        operation?.finish(lastDocumentSaveSucceeded ? .success : .error, error: .storage)
         if nowDone {
             Haptics.success()
             flash(doneLine())
-            Analytics.itemDone(next[idx], source: "list")
+            if lastDocumentSaveSucceeded { Analytics.itemDone(next[idx], source: "list") }
         } else {
             Haptics.light()
             flash("未達成に戻しました。")
@@ -811,14 +822,10 @@ final class AppStore: ObservableObject {
 
     @Published var selection: Set<Int> = []
 
-    var hasSelection: Bool { !selection.isEmpty }
-
     func toggleSelection(_ id: Int) {
         if selection.contains(id) { selection.remove(id) } else { selection.insert(id) }
         Haptics.light()
     }
-
-    func clearSelection() { selection.removeAll() }
 
     // Mail-style selection mode. Leaving it clears the current selection.
     @Published var selectionMode: Bool = false
@@ -901,7 +908,9 @@ final class AppStore: ObservableObject {
     func setDone(ids: Set<Int>, done: Bool, date: Date? = nil) {
         guard !ids.isEmpty else { return }
         var next = items
+        var newlyDone: [BucketItem] = []
         for i in next.indices where ids.contains(next[i].id) {
+            let wasDone = next[i].done
             if done {
                 next[i].done = true
                 if let date { next[i].doneAt = date }
@@ -909,14 +918,19 @@ final class AppStore: ObservableObject {
             } else {
                 next[i].done = false   // keep doneAt
             }
+            if done && !wasDone { newlyDone.append(next[i]) }
         }
+        let operations = newlyDone.map { _ in Analytics.Operation(.completeItem) }
         items = next   // single didSet → single persist
+        for operation in operations {
+            operation.finish(lastDocumentSaveSucceeded ? .success : .error, error: .storage)
+        }
         Haptics.success()
         flash(done ? "\(ids.count)件を達成にしました。" : "\(ids.count)件を未達成に戻しました。")
         Analytics.bulk(done ? "done" : "undone", count: ids.count)
         // Each achievement counts toward the KPI individually, like single taps.
-        if done {
-            for it in next where ids.contains(it.id) { Analytics.itemDone(it, source: "bulk") }
+        if done && lastDocumentSaveSucceeded {
+            for it in newlyDone { Analytics.itemDone(it, source: "bulk") }
         }
     }
 
@@ -964,10 +978,12 @@ final class AppStore: ObservableObject {
         var next = items
         next[idx].done = true
         next[idx].doneAt = date
+        let operation = items[idx].done ? nil : Analytics.Operation(.completeItem)
         items = next
+        operation?.finish(lastDocumentSaveSucceeded ? .success : .error, error: .storage)
         Haptics.success()
         flash(doneLine())
-        Analytics.itemDone(next[idx], source: "detail")
+        if operation != nil && lastDocumentSaveSucceeded { Analytics.itemDone(next[idx], source: "detail") }
     }
 
     // Checking something off is the product's reward moment — the copy
@@ -1032,7 +1048,9 @@ final class AppStore: ObservableObject {
     @discardableResult
     func add(title: String, priority: Priority,
              seasons: [SeasonTag], tags: [String],
-             meta: String, via: String? = nil, url: String? = nil) -> BucketItem {
+             meta: String, via: String? = nil, url: String? = nil,
+             fromCapture: Bool = false,
+             importOperation: Analytics.Operation? = nil) -> BucketItem {
         let id = nextId; nextId += 1
         let item = BucketItem(
             id: id, title: title, priority: priority,
@@ -1041,7 +1059,15 @@ final class AppStore: ObservableObject {
             via: via, url: url,
             savedAt: BucketItem.savedAtFormatter.string(from: Clock.today)
         )
+        let operation = importOperation ?? Analytics.Operation(.saveItem)
         items.insert(item, at: 0)
+        operation.finish(lastDocumentSaveSucceeded ? .success : .error, error: .storage)
+        if lastDocumentSaveSucceeded {
+            Analytics.itemAdded(priority: item.priority, seasons: item.seasons,
+                                tagCount: item.tags.count, hasURL: item.url != nil,
+                                source: "app", fromCapture: fromCapture)
+            Analytics.firstItemSaved()
+        }
         Haptics.success()
         flash("保存しました。")
         return item
@@ -1131,13 +1157,14 @@ final class AppStore: ObservableObject {
     // truth for its session and reloads on foreground to absorb the extension).
     private func persistDocument() {
         let doc = StoreDocument(items: items, customTags: customTags)
-        if SharedStore.save(doc) { reloadWidgets(); return }
+        lastDocumentSaveSucceeded = SharedStore.save(doc)
+        if lastDocumentSaveSucceeded { reloadWidgets(); return }
         // A failed write leaves the in-memory list ahead of disk. Retry once —
         // this covers a transient NSFileCoordinator / atomic-write hiccup. The
         // read side (StoreLoad + backup recovery) still guards against loading
         // damaged data on the next launch, so a persistent failure degrades to
         // "last good snapshot" rather than a wipe.
-        _ = SharedStore.save(doc)
+        lastDocumentSaveSucceeded = SharedStore.save(doc)
         reloadWidgets()
     }
 
@@ -1423,6 +1450,20 @@ enum Storage {
     private static let encoder = JSONEncoder()
     private static let decoder = JSONDecoder()
 
+    // Presence proves prior use only at measurement-state initialization.
+    // kMigrated is intentionally excluded: the current first launch creates it.
+    static var hasPreMeasurementHistory: Bool {
+        let keys = [kItems, kTags, kTweaks, kPrefs, kOnboarded,
+                    "bucket-list-v2.engagement", "bucket-list-v2.proEntitled", "bucket-list-v2.freeCapturesUsed"]
+        if [defaults, UserDefaults.standard].contains(where: { suite in
+            keys.contains { suite.object(forKey: $0) != nil }
+        }) { return true }
+        switch SharedStore.load() {
+        case .loaded, .unreadable: return true
+        case .absent: return false // Absence is unknown, never new evidence.
+        }
+    }
+
     // MARK: legacy item/tag blobs
     // Pre-SharedStore storage. Now read only as the migration source (and as
     // the fallback when the App Group container can't be resolved). Decoded
@@ -1549,8 +1590,8 @@ enum Storage {
 extension AppStore {
     func filtered() -> [BucketItem] {
         items.filter { it in
-            passes(filterPriority: it) && passes(filterSeasons: it)
-                && passes(filterTags: it) && passes(filterStatus: it)
+            filters.passes(filterPriority: it) && filters.passes(filterSeasons: it)
+                && filters.passes(filterTags: it) && filters.passes(filterStatus: it)
                 && passes(filterYear: it)
         }
     }
@@ -1580,40 +1621,12 @@ extension AppStore {
         }
     }
 
-    func passes(filterPriority it: BucketItem) -> Bool {
-        filters.priority.isEmpty || filters.priority.contains(it.priority)
-    }
-    func passes(filterStatus it: BucketItem) -> Bool {
-        filters.statuses.isEmpty || filters.statuses.contains(it.done ? .done : .open)
-    }
-    func passes(filterSeasons it: BucketItem) -> Bool {
-        if filters.seasons.isEmpty { return true }
-        let itemTags = it.normalizedSeasons
-        return filters.seasons.contains { itemTags.contains($0) }
-    }
-    func passes(filterTags it: BucketItem) -> Bool {
-        filters.tags.isEmpty || it.tags.contains(where: filters.tags.contains)
-    }
-
-    func nowScore(_ it: BucketItem) -> Double { nowScore(it, season: Clock.season) }
-
-    // Season is passed in so callers that score many items (the sort comparator,
-    // timingSuggestion) can read Clock.season once instead of per item/comparison
-    // — Clock.season is a Calendar.component call. Same result either way.
-    func nowScore(_ it: BucketItem, season: Season) -> Double {
-        TimingEngine.nowScore(it, season: season)
-    }
-
     // Seasons from now until a season tag is next active (0 = this season).
     // "いつでも" carries no specific season, so it sinks below dated items.
-    func seasonRank(_ it: BucketItem) -> Int {
-        seasonRank(it, order: Season.upcoming(from: Clock.season))
-    }
-
     // `order` is the upcoming-season sequence ([now, +1, +2, +3]); passed in so
     // the sort comparator builds it once rather than allocating a 4-element array
     // (and doing the Calendar call) on every comparison. Same result.
-    func seasonRank(_ it: BucketItem, order: [Season]) -> Int {
+    private func seasonRank(_ it: BucketItem, order: [Season]) -> Int {
         let tags = it.normalizedSeasons
         var best = Int.max
         for t in tags {
@@ -1649,7 +1662,8 @@ extension AppStore {
                 if a.priority.weight != b.priority.weight {
                     return a.priority.weight > b.priority.weight
                 }
-                let sa = nowScore(a, season: currentSeason), sb = nowScore(b, season: currentSeason)
+                let sa = TimingEngine.nowScore(a, season: currentSeason)
+                let sb = TimingEngine.nowScore(b, season: currentSeason)
                 if sa != sb { return sa > sb }
             case .priority:
                 if a.priority.weight != b.priority.weight {
@@ -1681,33 +1695,7 @@ extension AppStore {
                             seasons: [SeasonTag: Int],
                             tags: [String: Int],
                             statuses: [ItemStatus: Int]) {
-        let all = items
-        let forPrio = all.filter { passes(filterSeasons: $0) && passes(filterTags: $0) && passes(filterStatus: $0) }
-        let forSeas = all.filter { passes(filterPriority: $0) && passes(filterTags: $0) && passes(filterStatus: $0) }
-        let forTag  = all.filter { passes(filterPriority: $0) && passes(filterSeasons: $0) && passes(filterStatus: $0) }
-        let forStat = all.filter { passes(filterPriority: $0) && passes(filterSeasons: $0) && passes(filterTags: $0) }
-
-        var prio: [Priority: Int] = [:]
-        for it in forPrio { prio[it.priority, default: 0] += 1 }
-
-        var seas: [SeasonTag: Int] = [:]
-        for it in forSeas {
-            let itemTags = it.normalizedSeasons
-            for season in Season.order {
-                let tag = SeasonTag.season(season)
-                if itemTags.contains(tag) { seas[tag, default: 0] += 1 }
-            }
-            if itemTags.contains(.any) { seas[.any, default: 0] += 1 }
-        }
-
-        var tags: [String: Int] = [:]
-        for t in allTags { tags[t.key] = 0 }
-        for it in forTag { for k in it.tags { tags[k, default: 0] += 1 } }
-
-        var stat: [ItemStatus: Int] = [.open: 0, .done: 0]
-        for it in forStat { stat[it.done ? .done : .open, default: 0] += 1 }
-
-        return (prio, seas, tags, stat)
+        filters.counts(in: items, allTags: allTags)
     }
 }
 
@@ -2091,8 +2079,7 @@ extension AppStore {
 
 enum TimingEngine {
     // Season-fit score: current-season match +2, "いつでも" (.any) +0.4. The single
-    // definition — AppStore.nowScore delegates here so the sort path and the
-    // suggestion stay in lockstep.
+    // definition shared by list sorting and timing suggestions.
     static func nowScore(_ it: BucketItem, season: Season) -> Double {
         let tags = it.normalizedSeasons
         var s = 0.0

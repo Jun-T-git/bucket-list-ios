@@ -18,7 +18,11 @@ items / customTags / filters / sort / tweaks と、シート・トースト・�
 - 起動/復帰：`scenePhase == .active` で `store.reload()` ＋通知再同期。
   → **共有拡張がバックグラウンドで書いた項目が、再起動なしで前面復帰時に反映される**核心。
 - 画面：各 View は素の SwiftUI struct。一時 UI 状態はローカル `@State`、共有データはストア経由。
-  `ContentView` がタブ切替（`store.selectedTab`）・FAB・下部バー・全 `.sheet` を保持。
+  `ContentView` がタブ切替（`store.selectedTab`）・FAB・下部バー・追加/詳細/編集シートを保持。
+  レポートの振り返り一覧は `ReportView` の標準 List シート。選択時は一覧を閉じてからルートの既存詳細へ渡し、編集・取消・削除・undo を共有する。
+  グラフは全履歴の累積を保ち、期間選択で該当年へスクロールする。期間統計・振り返り一覧は選択期間へ絞り、先頭の今年サマリー・今年の目標・これからの季節は固定。
+  一覧は `AchievementHistory.items` が既存の `done` / `doneAt` を読み取り専用で投影する。古い補完年月の由来は識別できないため、その制約を一覧で案内し、保存値を移行/再計算しない。
+  季節カードの候補も同じ詳細へ進む。追加導線は共通 `AddEditSheet` を使い、自動登録・達成を行わない。
   `TabView` は使わず `switch store.selectedTab` ＋ `CustomTabBar`。
 - 由来：もとは React プロトタイプの移植（`Models.swift` のコメントに `App()` / `shared.jsx` 対応の記述）。
 

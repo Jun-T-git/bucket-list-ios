@@ -1,5 +1,5 @@
 import Foundation
-import LinkPresentation
+import Darwin
 
 // MARK: - Source type
 
@@ -69,29 +69,52 @@ enum URLSafety {
         guard let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" else {
             return false
         }
-        guard let host = url.host?.lowercased() else { return false }
-        if host == "localhost" || host.hasSuffix(".local") || host.hasSuffix(".internal") {
-            return false
+        guard var host = url.host?.lowercased(), !host.isEmpty else { return false }
+        // Foundation returns bracketed IPv6 hosts. DNS's final root dot must not
+        // hide a local hostname or change the interpretation of an IP literal.
+        if host.hasPrefix("["), host.hasSuffix("]") {
+            host = String(host.dropFirst().dropLast())
         }
-        if isPrivateIP(host) { return false }
+        if host.hasSuffix(".") { host.removeLast() }
+        guard !host.isEmpty, !host.contains("%") else { return false }
+        if ["localhost", "local", "internal"].contains(where: {
+            host == $0 || host.hasSuffix("." + $0)
+        }) { return false }
+
+        if host.contains(":") {
+            var address = in6_addr()
+            guard inet_pton(AF_INET6, host, &address) == 1 else { return false }
+            let bytes = withUnsafeBytes(of: address) { Array($0) }
+            // IPv4-mapped addresses must pass the same IPv4 policy.
+            if bytes.prefix(10).allSatisfy({ $0 == 0 }), bytes[10] == 255, bytes[11] == 255 {
+                return isPublicIPv4(Array(bytes.suffix(4)))
+            }
+            // Only global-unicast literals; excludes loopback, unspecified,
+            // unique/site/link-local, multicast, and IPv4-compatible addresses.
+            return bytes[0] & 0xe0 == 0x20
+        }
+        var address = in_addr()
+        if inet_aton(host, &address) == 1 {
+            let parts = host.split(separator: ".", omittingEmptySubsequences: false)
+            let octets = parts.compactMap { UInt8($0) }
+            // Reject shorthand, integer, hexadecimal and octal spellings rather
+            // than letting URLSession interpret them differently from our guard.
+            guard parts.count == 4, octets.count == 4,
+                  zip(parts, octets).allSatisfy({ String($0.0) == String($0.1) }) else { return false }
+            return isPublicIPv4(octets)
+        }
+        // Invalid numeric-looking hosts must not fall through as DNS names.
+        if host.allSatisfy({ $0.isNumber || $0 == "." }) { return false }
         return true
     }
 
-    private static func isPrivateIP(_ host: String) -> Bool {
-        // IPv6 loopback / unique-local.
-        if host == "::1" || host.hasPrefix("fc") || host.hasPrefix("fd") { return true }
-        // IPv4 literal in a private / loopback / link-local range. Parse exactly
-        // four octets, each 0...255 — a non-numeric part is dropped by compactMap
-        // (→ count != 4), an out-of-range one fails allSatisfy; both → not-private
-        // path returns false, same as before.
-        let parts = host.split(separator: ".")
-        let octets = parts.compactMap { Int($0) }
-        guard parts.count == 4, octets.count == 4,
-              octets.allSatisfy({ (0...255).contains($0) }) else { return false }
+    private static func isPublicIPv4(_ octets: [UInt8]) -> Bool {
         switch (octets[0], octets[1]) {
-        case (127, _), (10, _), (192, 168), (169, 254): return true
-        case (172, let b) where (16...31).contains(b): return true
-        default: return false
+        case (0, _), (10, _), (127, _), (169, 254), (192, 168): return false
+        case (172, let b) where (16...31).contains(b): return false
+        case (100, let b) where (64...127).contains(b): return false
+        case (let a, _) where a >= 224: return false
+        default: return true
         }
     }
 }
@@ -156,113 +179,33 @@ enum GoogleMapsURL {
 
 // MARK: - Metadata fetcher
 
-// LinkPresentation first (standard, gives a clean title + preview image); a
-// size-capped HTML/OGP read only fills the gaps. Every failure is a normal
-// outcome — callers always get a LinkMetadata they can fall back from.
+// One bounded HTML request owns redirects, timeout and cancellation. There is
+// no second metadata provider with an independent, opaque network policy.
 enum MetadataFetcher {
     static let requestTimeout: TimeInterval = 6
     static let maxRedirects = 5
     static let maxHTMLBytes = 256 * 1024
 
-    static func fetch(_ url: URL) async -> LinkMetadata {
-        // Only shorteners need a redirect round-trip; skip it for normal URLs so
-        // we don't pay an extra request. LinkPresentation follows redirects itself.
-        let host = url.host?.lowercased() ?? ""
-        let resolved = isShortener(host) ? await resolveRedirects(url) : url
-        let sourceType = SourceType.detect(from: resolved)
-        var meta = LinkMetadata(resolvedURL: resolved, sourceType: sourceType)
-        // For maps, the place name in the URL beats any page title.
-        if sourceType == .googleMaps { meta.placeName = GoogleMapsURL.placeName(from: resolved) }
-
-        // 1) LinkPresentation — a clean title.
-        if let title = await fetchLinkPresentation(resolved) {
-            meta.title = title
-        }
-
-        // 2) HTML only when it can add something LP/maps didn't. Maps already has
-        //    the place name; YouTube's LP title is the video — skip HTML for both.
-        let titleWeak = GenericTitle.isGeneric(meta.title)
-        let skipHTML = sourceType == .googleMaps || sourceType == .youtube
-        if !skipHTML, titleWeak || meta.description == nil {
-            if let html = await fetchHTMLHead(resolved) {
-                if titleWeak, let t = html.title, !GenericTitle.isGeneric(t) { meta.title = t }
-                meta.siteName = html.siteName
-                meta.description = meta.description ?? html.description
-                meta.canonical = html.canonical
-            }
-        }
+    static func fetch(_ url: URL, configuration: URLSessionConfiguration = .ephemeral,
+                      timeout: TimeInterval = requestTimeout) async -> LinkMetadata {
+        var meta = LinkMetadata(resolvedURL: url, sourceType: SourceType.detect(from: url))
+        if meta.sourceType == .googleMaps { meta.placeName = GoogleMapsURL.placeName(from: url) }
+        guard URLSafety.isSafe(url), !Task.isCancelled else { return meta }
+        let reader = BoundedHTMLRequest(configuration: configuration, timeout: timeout)
+        guard let result = await reader.fetch(url) else { return meta }
+        meta.resolvedURL = result.url
+        meta.sourceType = SourceType.detect(from: result.url)
+        meta.placeName = meta.sourceType == .googleMaps ? GoogleMapsURL.placeName(from: result.url) : nil
+        guard let data = result.data else { return meta }
+        let head = parseHead(String(decoding: data, as: UTF8.self), baseURL: result.url)
+        if !GenericTitle.isGeneric(head.title) { meta.title = head.title }
+        meta.siteName = head.siteName
+        meta.description = head.description
+        meta.canonical = head.canonical
         return meta
     }
 
-    private static let shortenerHosts: Set<String> = [
-        "goo.gl", "maps.app.goo.gl", "vm.tiktok.com", "youtu.be", "t.co",
-        "bit.ly", "tinyurl.com", "amzn.to", "g.co", "lnkd.in", "buff.ly",
-        // Google's universal share wrapper (Maps "share place", search results,
-        // etc.) — must be expanded to reach the real destination.
-        "share.google",
-    ]
-    private static func isShortener(_ host: String) -> Bool {
-        shortenerHosts.contains(host) || shortenerHosts.contains { host.hasSuffix("." + $0) }
-    }
-
-    // MARK: redirects
-
-    private static func resolveRedirects(_ url: URL) async -> URL {
-        guard URLSafety.isSafe(url) else { return url }
-        var req = URLRequest(url: url, timeoutInterval: requestTimeout)
-        req.httpMethod = "GET"   // GET follows shortener redirects more reliably than HEAD
-        req.setValue(userAgent, forHTTPHeaderField: "User-Agent")
-        let guardDelegate = RedirectGuard(maxRedirects: maxRedirects)
-        do {
-            let (bytes, response) = try await URLSession.shared.bytes(for: req, delegate: guardDelegate)
-            // We only need the resolved URL — stop immediately, don't drain the body.
-            for try await _ in bytes { break }
-            return response.url ?? url
-        } catch {
-            return url
-        }
-    }
-
-    // A desktop-ish UA stops some sites (incl. Google) from serving an empty or
-    // consent interstitial that yields a useless title.
-    private static let userAgent =
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
-
-    // MARK: LinkPresentation
-
-    private static func fetchLinkPresentation(_ url: URL) async -> String? {
-        let provider = LPMetadataProvider()
-        provider.timeout = requestTimeout
-        guard let metadata = try? await provider.startFetchingMetadata(for: url) else { return nil }
-        return metadata.title
-    }
-
-    // MARK: HTML / OGP (capped)
-
     private struct HTMLHead { var title: String?; var description: String?; var siteName: String?; var canonical: URL? }
-
-    private static func fetchHTMLHead(_ url: URL) async -> HTMLHead? {
-        guard URLSafety.isSafe(url) else { return nil }
-        var req = URLRequest(url: url, timeoutInterval: requestTimeout)
-        req.setValue("text/html", forHTTPHeaderField: "Accept")
-        req.setValue(userAgent, forHTTPHeaderField: "User-Agent")
-        // Ask for just the head of the document; servers that honour Range save us
-        // the full download. We cap again locally for servers that ignore it.
-        req.setValue("bytes=0-\(maxHTMLBytes - 1)", forHTTPHeaderField: "Range")
-        let guardDelegate = RedirectGuard(maxRedirects: maxRedirects)
-        do {
-            // Bulk download (fast) rather than byte-by-byte; parse only the first
-            // chunk where <head> lives.
-            let (data, response) = try await URLSession.shared.data(for: req, delegate: guardDelegate)
-            if let mime = (response as? HTTPURLResponse)?
-                .value(forHTTPHeaderField: "Content-Type")?.lowercased(),
-               !mime.contains("html") { return nil }
-            let html = String(decoding: data.prefix(maxHTMLBytes), as: UTF8.self)
-            return parseHead(html, baseURL: url)
-        } catch {
-            return nil
-        }
-    }
 
     private static func parseHead(_ html: String, baseURL: URL) -> HTMLHead {
         var head = HTMLHead()
@@ -274,7 +217,8 @@ enum MetadataFetcher {
             ?? metaContent(html, name: "description")
         if let canon = firstMatch(html, #"<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']"#)
             ?? firstMatch(html, #"<link[^>]+href=["']([^"']+)["'][^>]+rel=["']canonical["']"#) {
-            head.canonical = URL(string: canon, relativeTo: baseURL)?.absoluteURL
+            if let url = URL(string: decodeEntities(canon), relativeTo: baseURL)?.absoluteURL,
+               URLSafety.isSafe(url) { head.canonical = url }
         }
         return head
     }
@@ -307,18 +251,122 @@ enum MetadataFetcher {
     }
 }
 
-// Per-request redirect policy: cap the hops and re-validate every Location so a
-// shortener can't bounce us onto a private address.
-private final class RedirectGuard: NSObject, URLSessionTaskDelegate {
-    let maxRedirects: Int
-    private var count = 0
-    init(maxRedirects: Int) { self.maxRedirects = maxRedirects }
+// Delegate callbacks use a serial URLSession queue. The lock also coordinates
+// cancellation/deadline callbacks so every continuation completes exactly once.
+private final class BoundedHTMLRequest: NSObject, URLSessionDataDelegate, @unchecked Sendable {
+    struct Result { let url: URL; let data: Data? }
+    private let lock = NSLock()
+    private let configuration: URLSessionConfiguration
+    private let timeout: TimeInterval
+    private var continuation: CheckedContinuation<Result?, Never>?
+    private var session: URLSession?
+    private var task: URLSessionDataTask?
+    private var deadline: DispatchWorkItem?
+    private var finished = false
+    private var redirects = 0
+    private var responseURL: URL?
+    private var data = Data()
+
+    init(configuration: URLSessionConfiguration, timeout: TimeInterval) {
+        self.configuration = configuration.copy() as! URLSessionConfiguration
+        self.timeout = timeout
+    }
+
+    func fetch(_ url: URL) async -> Result? {
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                lock.lock()
+                guard !finished else {
+                    lock.unlock()
+                    continuation.resume(returning: nil)
+                    return
+                }
+                self.continuation = continuation
+                configuration.timeoutIntervalForRequest = timeout
+                configuration.timeoutIntervalForResource = timeout
+                configuration.httpCookieStorage = nil
+                configuration.urlCredentialStorage = nil
+                configuration.urlCache = nil
+                let session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
+                self.session = session
+                var request = URLRequest(url: url, timeoutInterval: timeout)
+                request.setValue("text/html", forHTTPHeaderField: "Accept")
+                request.setValue("bytes=0-\(MetadataFetcher.maxHTMLBytes - 1)", forHTTPHeaderField: "Range")
+                request.setValue("Mozilla/5.0 AppleWebKit/605.1.15 Version/17.0 Safari/605.1.15", forHTTPHeaderField: "User-Agent")
+                let task = session.dataTask(with: request)
+                self.task = task
+                let deadline = DispatchWorkItem { [weak self] in self?.finish(nil) }
+                self.deadline = deadline
+                DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: deadline)
+                task.resume()
+                lock.unlock()
+            }
+        } onCancel: {
+            self.finish(nil)
+        }
+    }
+
+    private func finish(_ result: Result?) {
+        lock.lock()
+        guard !finished else { lock.unlock(); return }
+        finished = true
+        let result = result ?? responseURL.map { Result(url: $0, data: nil) }
+        let continuation = self.continuation
+        let session = self.session
+        self.continuation = nil
+        self.session = nil
+        task = nil
+        deadline?.cancel()
+        deadline = nil
+        lock.unlock()
+        session?.invalidateAndCancel()
+        continuation?.resume(returning: result)
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask,
+                    didReceive response: URLResponse,
+                    completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
+        guard let http = response as? HTTPURLResponse,
+              let url = http.url, URLSafety.isSafe(url) else {
+            completionHandler(.cancel)
+            finish(nil)
+            return
+        }
+        lock.withLock { responseURL = url }
+        guard (200...299).contains(http.statusCode),
+              http.mimeType == nil || http.mimeType?.lowercased() == "text/html"
+                  || http.mimeType?.lowercased() == "application/xhtml+xml" else {
+            completionHandler(.cancel)
+            finish(Result(url: url, data: nil))
+            return
+        }
+        completionHandler(.allow)
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive chunk: Data) {
+        // Retain at most the cap even when the server ignores Range or has no
+        // Content-Length. Cancel immediately at the cap or end of the head.
+        data.append(chunk.prefix(MetadataFetcher.maxHTMLBytes - data.count))
+        if data.count == MetadataFetcher.maxHTMLBytes ||
+            String(decoding: data, as: UTF8.self).range(of: "</head>", options: .caseInsensitive) != nil {
+            finish(responseURL.map { Result(url: $0, data: data) })
+        }
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        finish(error == nil ? responseURL.map { Result(url: $0, data: data) } : nil)
+    }
 
     func urlSession(_ session: URLSession, task: URLSessionTask,
                     willPerformHTTPRedirection response: HTTPURLResponse,
-                    newRequest request: URLRequest) async -> URLRequest? {
-        count += 1
-        guard count <= maxRedirects, let url = request.url, URLSafety.isSafe(url) else { return nil }
-        return request
+                    newRequest request: URLRequest,
+                    completionHandler: @escaping (URLRequest?) -> Void) {
+        redirects += 1
+        guard redirects <= MetadataFetcher.maxRedirects, let url = request.url, URLSafety.isSafe(url) else {
+            completionHandler(nil)
+            finish(nil)
+            return
+        }
+        completionHandler(request)
     }
 }

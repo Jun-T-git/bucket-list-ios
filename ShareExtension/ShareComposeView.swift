@@ -28,12 +28,13 @@ struct ShareComposeView: View {
 
     @State private var useAuto = true
     @State private var isGenerating = false
-    @State private var candidate: ItemCandidate?
     @State private var prewarmed = false
     @State private var urlState: URLState = .idle
     @State private var autoTask: Task<Void, Never>? = nil
     @State private var genTask: Task<Void, Never>? = nil
     @State private var lastQueriedURL = ""
+    @State private var importOperation: Analytics.Operation?
+    @State private var importAdopted = false
 
     // Which fields the user has edited by hand. The auto-adopted reading only
     // fills fields NOT in here, so a background read never clobbers a manual edit.
@@ -89,7 +90,7 @@ struct ShareComposeView: View {
             .navigationTitle("Wishesに追加")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("キャンセル") { onCancel() } }
+                ToolbarItem(placement: .cancellationAction) { Button("キャンセル") { cancelImport(); onCancel() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") { save() }
                         .disabled(!canSave)
@@ -109,6 +110,7 @@ struct ShareComposeView: View {
     // MARK: - Logic
 
     private func start() {
+        Analytics.prepareFirstValueScope()
         // Make sure the file-coordinated store is seeded from any legacy blobs
         // before we read it, then load the user's current custom tags.
         SharedStore.migrateLegacyIfNeeded()
@@ -130,7 +132,14 @@ struct ShareComposeView: View {
         }
     }
 
+    private func cancelImport() {
+        importOperation?.finish(.cancelled)
+        importOperation = nil
+        importAdopted = false
+    }
+
     private func handleUrlChanged(_ v: String) {
+        if v.trimmingCharacters(in: .whitespaces) != lastQueriedURL { cancelImport() }
         if useAuto, !prewarmed, !v.trimmingCharacters(in: .whitespaces).isEmpty {
             prewarmed = true
             OnDeviceModel.prewarm()
@@ -178,22 +187,27 @@ struct ShareComposeView: View {
         urlState = .generating
         withAnimation(.easeInOut(duration: 0.2)) { isGenerating = true }
         genTask?.cancel()
+        cancelImport()
+        let operation = Analytics.Operation(.importItem)
+        importOperation = operation
         genTask = Task {
             // Pass the share sheet's own text (caption/tweet/title) as a signal —
             // for login-walled apps it often holds the real subject the server
             // fetch can't see. `initialTitle` is the untouched shared text.
             let c = await CandidateGenerator.make(rawURL: raw, memo: memo,
                                                   sharedText: initialTitle, existingTags: allTags)
+            guard !Task.isCancelled else { return }
             await MainActor.run {
                 // Only the result for the URL still in the field wins.
-                guard raw == urlInput.trimmingCharacters(in: .whitespaces) else { return }
+                guard raw == urlInput.trimmingCharacters(in: .whitespaces),
+                      operation === importOperation else { return }
                 withAnimation(.easeInOut(duration: 0.2)) {
                     isGenerating = false
-                    candidate = c
                     if c.readable && !c.shouldConfirm {
                         // A successful read consumes one free import (no-op for Pro).
                         Storage.consumeFreeCapture()
                         applyAI(c)       // auto-adopt: fills only untouched fields
+                        importAdopted = true
                         urlState = .ok
                         Analytics.captureResult("ok", source: "share")
                     } else if c.readable {
@@ -203,10 +217,12 @@ struct ShareComposeView: View {
                         // enter it. No free import is spent for a non-result.
                         if !touched.contains(.title) { title = "" }
                         urlState = .lowConfidence
+                        operation.finish(.error, error: .validation)
                         Analytics.captureResult("low_confidence", source: "share")
                     } else {
                         // Couldn't read at all — keep the keyword draft, just warn.
                         urlState = .failed
+                        operation.finish(.error, error: .unknown)
                         Analytics.captureResult("failed", source: "share")
                     }
                 }
@@ -284,6 +300,9 @@ struct ShareComposeView: View {
         // Append through a coordinated read-modify-write: the id is computed
         // from the freshly-read document and the new item is merged in, so a
         // simultaneous host write can't drop either side's changes.
+        let adoptedOperation = importAdopted && importOperation?.finished == false ? importOperation : nil
+        if adoptedOperation == nil { cancelImport() }
+        let operation = adoptedOperation ?? Analytics.Operation(.saveItem)
         let ok = SharedStore.mutate { doc in
             let id = (doc.items.map(\.id).max() ?? 0) + 1
             let item = BucketItem(
@@ -297,7 +316,9 @@ struct ShareComposeView: View {
         }
         // Only dismiss the share sheet as "saved" when the write actually
         // succeeded; otherwise warn instead of losing the item silently.
+        operation.finish(ok ? .success : .error, error: .storage)
         if ok {
+            Analytics.firstItemSaved()
             // Queued in the App Group; the host app sends it on next foreground.
             Analytics.itemAdded(priority: priority, seasons: seasons, tagCount: tags.count,
                                 hasURL: savedURL != nil, source: "share",
