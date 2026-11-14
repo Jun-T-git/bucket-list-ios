@@ -643,6 +643,7 @@ final class AppStore: ObservableObject {
     private var toastToken: UUID = UUID()
 
     private(set) var lastDocumentSaveSucceeded = false
+    private var isApplyingLoadedDocument = false
 
     private var nextId: Int
 
@@ -736,20 +737,25 @@ final class AppStore: ObservableObject {
     // Re-read the shared store and recompute the id counter. Called on
     // foreground (scenePhase .active) so items captured via the Share
     // Extension show up without an app relaunch. Unchanged documents skip
-    // the didSet observers and their persistence/widget refresh work.
+    // the didSet observers and their widget refresh work.
     func reload() {
         switch SharedStore.load() {
         case .loaded(let doc):
             // A successful read clears any earlier "unreadable" state.
             storageUnreadable = false
-            // Skip the churn (and the didSet re-persist) when nothing changed.
+            // Keep the current state when nothing changed.
             guard doc.items != items || doc.customTags != customTags else {
                 if let t = Storage.loadTweaks() { tweaks = t }
                 return
             }
+            // The snapshot has already been persisted. Applying its fields
+            // must not write it back over a newer extension update.
+            isApplyingLoadedDocument = true
             items = doc.items
             customTags = doc.customTags
+            isApplyingLoadedDocument = false
             nextId = AppStore.nextId(after: doc.items)
+            reloadWidgets()
         case .absent, .unreadable:
             // Nothing good to load — keep the current working set rather than
             // replacing it with empty/seed data.
@@ -1040,6 +1046,10 @@ final class AppStore: ObservableObject {
             next[idx].via = nil
         }
         items = next
+        guard lastDocumentSaveSucceeded else {
+            flash("保存できませんでした。")
+            return
+        }
         Haptics.light()
         flash("保存しました。")
         Analytics.track(.itemUpdate, ["has_url": .init(next[idx].url != nil)])
@@ -1067,9 +1077,11 @@ final class AppStore: ObservableObject {
                                 tagCount: item.tags.count, hasURL: item.url != nil,
                                 source: "app", fromCapture: fromCapture)
             Analytics.firstItemSaved()
+            Haptics.success()
+            flash("保存しました。")
+        } else {
+            flash("保存できませんでした。")
         }
-        Haptics.success()
-        flash("保存しました。")
         return item
     }
 
@@ -1156,6 +1168,7 @@ final class AppStore: ObservableObject {
     // consistent. The host replaces the whole document (it's the source of
     // truth for its session and reloads on foreground to absorb the extension).
     private func persistDocument() {
+        guard !isApplyingLoadedDocument else { return }
         let doc = StoreDocument(items: items, customTags: customTags)
         lastDocumentSaveSucceeded = SharedStore.save(doc)
         if lastDocumentSaveSucceeded { reloadWidgets(); return }
@@ -1252,10 +1265,12 @@ private struct LossyDocument: Decodable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         hasAnyKey = c.contains(.items) || c.contains(.customTags)
-        let itemsArray = try? c.decode(LossyArray<BucketItem>.self, forKey: .items)
+        // Legacy documents may omit either field. A field present with
+        // the wrong type (including null) must trigger backup recovery.
+        let itemsArray = c.contains(.items) ? try c.decode(LossyArray<BucketItem>.self, forKey: .items) : nil
         items = itemsArray?.elements ?? []
         itemsAllFailed = (itemsArray?.elements.isEmpty == true) && (itemsArray?.skipped ?? 0) > 0
-        customTags = (try? c.decode(LossyArray<TagDef>.self, forKey: .customTags))?.elements ?? []
+        customTags = c.contains(.customTags) ? try c.decode(LossyArray<TagDef>.self, forKey: .customTags).elements : []
     }
 }
 
@@ -1291,18 +1306,24 @@ enum SharedStore {
     static func load() -> StoreLoad {
         guard let url = fileURL else { return Storage.legacyLoad() }
         let primary = read(url)
-        if case .unreadable = primary, let bak = backupURL {
-            // The live file is damaged (e.g. an interrupted write) — recover the
-            // last good snapshot rather than surfacing a wipe.
-            let recovered = read(bak)
-            if case .loaded(let doc) = recovered {
-                // Heal the primary from the backup immediately, so a later write
-                // can't back the damaged primary over the still-good backup.
-                _ = save(doc)
-                return recovered
-            }
+        guard case .unreadable = primary, let bak = backupURL else { return primary }
+
+        // Recheck under the same primary-file coordination used by writers.
+        // Another process may already have restored or updated the primary.
+        let coordinator = NSFileCoordinator()
+        var coordErr: NSError?
+        var result: StoreLoad = .unreadable
+        coordinator.coordinate(writingItemAt: url, options: .forReplacing, error: &coordErr) { u in
+            result = interpretFile(u)
+            guard case .unreadable = result,
+                  let bytes = try? Data(contentsOf: bak),
+                  case .loaded(let doc) = interpret(bytes) else { return }
+            // Restore the exact backup bytes and keep the backup intact even
+            // if repairing the primary fails. The recovery remains readable.
+            try? bytes.write(to: u, options: .atomic)
+            result = .loaded(doc)
         }
-        return primary
+        return coordErr == nil ? result : .unreadable
     }
 
     // Current document, or an empty one if nothing/garbage is stored.
@@ -1317,14 +1338,13 @@ enum SharedStore {
         var coordErr: NSError?
         var result: StoreLoad = .unreadable
         coordinator.coordinate(readingItemAt: url, options: [], error: &coordErr) { u in
-            guard let data = try? Data(contentsOf: u) else { result = .unreadable; return }
-            result = interpret(data)
+            result = interpretFile(u)
         }
         if coordErr != nil { return .unreadable }
         return result
     }
 
-    private static func interpret(_ data: Data) -> StoreLoad {
+    static func interpret(_ data: Data) -> StoreLoad {
         // A 0-byte file is never one of our documents (every write emits a JSON
         // object), and a parsed object lacking both keys isn't ours either —
         // treat both as damaged so backup recovery can run instead of showing an
@@ -1355,6 +1375,7 @@ enum SharedStore {
         var coordErr: NSError?
         var ok = false
         coordinator.coordinate(writingItemAt: url, options: .forReplacing, error: &coordErr) { u in
+            if case .unreadable = interpretFile(u) { return }
             ok = write(data, to: u)
         }
         return ok && coordErr == nil
@@ -1386,7 +1407,7 @@ enum SharedStore {
         return ok && coordErr == nil
     }
 
-    // Reads from inside an existing coordination block (used by mutate()).
+    // Reads from inside an existing coordination block.
     private static func interpretFile(_ url: URL) -> StoreLoad {
         // Mirror read(): a missing file is .absent, but a file that exists and
         // can't be read is .unreadable — NOT .absent. Otherwise mutate() would
@@ -1397,18 +1418,13 @@ enum SharedStore {
         return interpret(data)
     }
 
-    // Atomic write, then refresh the one-generation backup FROM the just-written
-    // (known-good) primary. Order matters: backing up before the write would
-    // copy a possibly-damaged primary over a good backup, and a subsequent
-    // failed write would leave both bad. Writing first means the backup is only
-    // ever a copy of a successfully-saved document, and a failed write leaves
-    // both the primary (atomic) and the backup untouched.
+    // Commit the primary before refreshing the backup from the same bytes.
+    // A failed atomic replacement leaves the previous file intact.
     private static func write(_ data: Data, to url: URL) -> Bool {
         do { try data.write(to: url, options: .atomic) }
         catch { return false }
         if let bak = backupURL {
-            try? FileManager.default.removeItem(at: bak)
-            try? FileManager.default.copyItem(at: url, to: bak)
+            try? data.write(to: bak, options: .atomic)
         }
         return true
     }
