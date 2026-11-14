@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "version": "1.1.2",
+  "build": "15",
+  "source_commit": "560e34a2d948818c52e9f4ebb3536707004b3f05",
+  "source_ref": "fix/wishes-storage-recovery-20261114",
+  "source_tree": "b2540e8281334f51ab31789a888f81c6e4795816",
+  "checked_at": "2026-11-14T20:28:52+09:00",
+  "baseline": "063056c1b36179f89c9380d99a2455abe213dba8",
+  "archive_sha256": {
+    "Wishes": "143a40721467fb96cf1c9b052f396942ef14bcdad019c7bbfcda6455f66a0af7",
+    "Info.plist": "faa8dc6c9a1ab6827b056076661cde3acec89791afcb3d63f61e30456d405b2b",
+    "PlugIns/ShareExtension.appex/ShareExtension": "e7e16f2b5b83d7b3f22a9158f33812c3918c094ee9c724a24c558a558f041307",
+    "PlugIns/WidgetExtension.appex/WidgetExtension": "036038520e6bed7ce37c1fc439603a8f59a3a2653dc50a8b524897b0d8d8a395"
+  },
+  "spmLockSha256": "08b829c1443e88523d2708a449fe6d46a353bce504006778fa847652e6ee2d2d",
+  "xcode": "26.6 (17F113)",
+  "iOSSDK": "26.5",
+  "archiveVerification": {
+    "codesignDeepStrict": true,
+    "versionBuildAndAppGroupOnAppAndBothExtensions": true
+  },
+  "checks": {
+    "baselineMalformedInputsFailed": 4,
+    "localTestsPassed": 91,
+    "localFailures": 0,
+    "localSkipped": 0,
+    "requiredCI": {
+      "conclusion": "success",
+      "headSha": "560e34a2d948818c52e9f4ebb3536707004b3f05",
+      "status": "completed",
+      "url": "https://github.com/Jun-T-git/bucket-list-ios/actions/runs/43589016796"
+    },
+    "independentReview": "passed",
+    "simulatorProductCheck": [
+      "host recovery",
+      "share refusal and retry",
+      "relaunch",
+      "widget",
+      "both damaged files preserved after host write refusal"
+    ],
+    "physicalDeviceInstall": "unverified"
+  },
+  "testflight": {
+    "id": "e0d43053-02bc-4ee4-9797-ab51fe134f71",
+    "version": "1.1.2",
+    "build": "15",
+    "processingState": "VALID",
+    "internalBuildState": "IN_BETA_TESTING",
+    "externalBuildState": "READY_FOR_BETA_SUBMISSION",
+    "existingGroup": "開発テスト",
+    "groupHasBuild": true,
+    "testerCount": 1,
+    "testersUnchanged": true,
+    "notesVerified": true,
+    "appStoreVersionRecordsUnchanged": true
+  },
+  "distribution_warnings": [
+    "Third-party SDK dSYMs unavailable for FirebaseAnalytics, GoogleAdsOnDeviceConversion, GoogleAppMeasurement, GoogleAppMeasurementIdentitySupport.",
+    "Upload export did not retain a separate IPA."
+  ],
+  "report": "https://github.com/Jun-T-git/bucket-list-ios/issues/8"
+}
