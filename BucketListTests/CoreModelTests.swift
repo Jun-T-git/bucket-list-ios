@@ -309,3 +309,41 @@ struct AchievementHistoryTests {
         }
     }
 }
+
+struct StoreDocumentTests {
+    @Test(arguments: [
+        #"{"items":"broken","customTags":[]}"#,
+        #"{"items":null,"customTags":[]}"#,
+        #"{"items":[],"customTags":{}}"#,
+        #"{"items":[],"customTags":null}"#,
+        #"{}"#,
+        #"{"items":[{}],"customTags":[]}"#
+    ])
+    func rejectsDamagedDocuments(json: String) {
+        #expect(SharedStore.interpret(Data(json.utf8)) == .unreadable)
+    }
+
+    @Test(arguments: [
+        #"{"items":[]}"#,
+        #"{"customTags":[]}"#,
+        #"{"items":[],"customTags":[]}"#
+    ])
+    func acceptsEmptyAndLegacyDocuments(json: String) {
+        #expect(SharedStore.interpret(Data(json.utf8)) == .loaded(StoreDocument()))
+    }
+
+    @Test func keepsValidRecordsInMixedArrays() throws {
+        let item = BucketItem(id: 41, title: "Synthetic wish", priority: .top, seasons: [.any],
+                              tags: ["c-fixture"], meta: "", done: true, doneAt: Date(timeIntervalSince1970: 1_743_638_400),
+                              via: nil, url: nil, savedAt: "2025-04-03")
+        let tag = TagDef(key: "c-fixture", ja: "Synthetic tag", builtin: false)
+        let document = StoreDocument(items: [item], customTags: [tag])
+        let data = try JSONEncoder().encode(document)
+        #expect(SharedStore.interpret(data) == .loaded(document))
+        var object = try #require(JSONSerialization.jsonObject(with: data) as? [String: [Any]])
+        object["items", default: []].append([:])
+        object["customTags", default: []].insert(42, at: 0)
+        let mixed = try JSONSerialization.data(withJSONObject: object)
+        #expect(SharedStore.interpret(mixed) == .loaded(document))
+    }
+}

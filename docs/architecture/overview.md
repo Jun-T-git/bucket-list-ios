@@ -42,7 +42,8 @@ items / customTags / filters / sort / tweaks と、シート・トースト・�
 - `StoreLoad` は `.absent` / `.loaded` / `.unreadable` の3値 → 読めない時に**空で上書きしない**
   （UI は `storageUnreadable` でアラート表示）。
 - `LossyArray` / `LossyDocument` は要素ごとにデコード → 1件破損はその1件だけ失う。
-  ただし items が**全件デコード失敗**（スキーマ全壊の兆候）なら `.unreadable` 扱い → 空リストで上書きせずバックアップ復旧へ。
+  既知のキーが省略された旧形式を許容し、配列以外（null を含む）や items の全件デコード失敗は `.unreadable` とする。
+  主ファイルが読めない間は保存を拒否し、正常なバックアップがあれば主ファイルの書込調整内で再確認して復元する。
 - `BucketItem` は手書きの寛容な `Codable` → 新フィールドは既定値フォールバック。
 
 ## アプリ ↔ 拡張の共有
