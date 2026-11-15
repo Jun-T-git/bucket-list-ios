@@ -31,8 +31,8 @@ items / customTags / filters / sort / tweaks と、シート・トースト・�
 1. **正典＝ App Group コンテナ内の単一 JSON ファイル**（`NSFileCoordinator` 経由）。
    `SharedStore`（`Models.swift`）が `store.json`（＋ `store.bak.json` 1世代バックアップ）を読み書き。
    `StoreDocument` が items＋customTags をひとまとまりで原子的に保存。
-   - 本体アプリはドキュメント全体を置換保存（`SharedStore.save`）。
-   - 拡張は協調的な read-modify-write で追記（`SharedStore.mutate`、`.forMerging`）→ **互いの書き込みを潰さない**。
+   - 本体と共有拡張は、協調書込の内側で最新の文書を読み、編集・追加・削除の差分を適用する（`SharedStore.updateDocument`、`.forMerging`）。本体の編集対象が変更済み、または削除済みの場合は保存を拒否する。
+   - 追加時の ID は最新文書と過去の最大 ID を基に採番し、削除した ID は再利用せず、タグ削除は最新の項目から参照を同じ書込で除く。過去の最大 ID は省略可能な項目で、旧形式とバックアップ復元に対応する。
 2. **UserDefaults（App Group suite）** … 小さめの副次データ：tweaks / view prefs / オンボーディング済フラグ /
    Pro エンタイトルメントのミラー / 旧 item blob（`Storage`。`suiteName: appGroupID`）。
 3. **旧データ（App Group 導入前）** … 初回起動で前方移行：`Storage.migrateFromStandardIfNeeded()` →
@@ -52,7 +52,7 @@ items / customTags / filters / sort / tweaks と、シート・トースト・�
 `.entitlements` に宣言（`BucketList/BucketList.entitlements`・`ShareExtension/ShareExtension.entitlements`・
 `WidgetExtension/WidgetExtension.entitlements`）。
 拡張は **`AppStore` を持たず StoreKit も動かせない** → `SharedStore` / `Storage` を直接読み書きする。
-`ShareComposeView.save()` は `SharedStore.mutate` 内で最新ドキュメントから次IDを計算し `via: "共有"` で挿入。
+`ShareComposeView.save()` は `SharedStore.updateDocument` 内で最新ドキュメントから次の未使用IDを採番し `via: "共有"` で挿入。
 ウィジェット（`WidgetExtension`）は `SharedStore.snapshot()` から **読み取り専用** で items を取り、`TimingEngine.suggestion(items:)`
 で本体ホームバナーと同一のタイミング提案を出す（ホーム画面 Small/Medium ＋ ロック画面 accessoryRectangular/accessoryInline）。
 各面は表示中の wish へ `wishes://item/<id>`（`WishLink`）でディープリンクし、タップで本体 `ContentView.onOpenURL` が該当 wish の
@@ -64,7 +64,7 @@ App Group ID はコード内 `static let appGroupID = "group.teratech.BucketList
 ## 状態変更の作法
 
 - 一時 UI 状態 = ローカル `@State`。共有データ = `@EnvironmentObject var store` / `pro`。
-- ストアの変更メソッドはローカルコピーを編集して一度だけ代入 → `items` 等の `didSet` が**1回だけ永続化**。
+- ストアの変更メソッドは協調書込の内側で変更を一度保存し、保存できた状態を本体に反映する。
 - undo は変更メソッドに内蔵（`pendingUndo` バッファ＋アクション付きトースト。`remove` / `removeMany`）。
 
 ## 計測（利用状況アナリティクス）

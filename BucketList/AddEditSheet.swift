@@ -26,6 +26,7 @@ struct AddEditSheet: View {
     @State private var seasonsManual: [SeasonTag]? = nil
     @State private var tagsManual: [String]? = nil
     @State private var showDeleteConfirm = false
+    @State private var showSaveError = false
     @State private var showDiscardConfirm = false
     // Signature of the editable state when the sheet opened, to detect unsaved
     // changes before discarding (cancel / swipe-to-dismiss).
@@ -173,12 +174,19 @@ struct AddEditSheet: View {
         .interactiveDismissDisabled(isDirty)
         .alert("削除しますか？", isPresented: $showDeleteConfirm) {
             Button("削除", role: .destructive) {
-                if let it = editingItem {
-                    store.remove(id: it.id)
+                guard let it = editingItem else { return }
+                if store.remove(id: it.id, expected: it) {
                     onClose()
+                } else {
+                    showSaveError = true
                 }
             }
             Button("キャンセル", role: .cancel) {}
+        }
+        .alert("変更を保存できませんでした", isPresented: $showSaveError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("もう一度お試しください。項目が変わっている場合は、一覧から開き直してください。")
         }
         .confirmationDialog("変更を破棄しますか？",
                             isPresented: $showDiscardConfirm, titleVisibility: .visible) {
@@ -388,21 +396,22 @@ struct AddEditSheet: View {
         // stray word / note typed into the field as a (broken) link.
         let link = urlInput.trimmingCharacters(in: .whitespaces)
         let resolvedURL = URLSafety.looksLikeWebURL(link) ? link : nil
+        let saved: Bool
         if let editing = editingItem {
-            store.update(
+            saved = store.update(
                 id: editing.id,
                 title: title.trimmingCharacters(in: .whitespaces),
                 priority: resolvedPrio,
                 seasons: resolvedSeasons,
                 tags: resolvedTags,
                 meta: note.trimmingCharacters(in: .whitespaces),
-                url: resolvedURL
+                url: resolvedURL, expected: editing
             )
         } else {
             // Saving without adopting the candidate explicitly ends that import.
             let adoptedOperation = captureApplied && importOperation?.finished == false ? importOperation : nil
             if adoptedOperation == nil { cancelImport() }
-            store.add(
+            saved = store.add(
                 title: title.trimmingCharacters(in: .whitespaces),
                 priority: resolvedPrio,
                 seasons: resolvedSeasons,
@@ -410,9 +419,13 @@ struct AddEditSheet: View {
                 meta: note.trimmingCharacters(in: .whitespaces),
                 via: resolvedURL != nil ? "URL" : nil,
                 url: resolvedURL, fromCapture: captureApplied, importOperation: adoptedOperation
-            )
+            ) != nil
         }
-        onClose()
+        if saved {
+            onClose()
+        } else {
+            showSaveError = true
+        }
     }
 
     private func populateState() {

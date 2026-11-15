@@ -274,18 +274,20 @@ struct ShareComposeView: View {
     private func addCustomTagLocally(_ label: String) -> String? {
         let trimmed = label.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return nil }
-        if let existing = allTags.first(where: { $0.ja == trimmed }) { return existing.key }
-        let custom = allTags.filter { !$0.builtin }
-        guard custom.count < Tags.maxCustom else { return nil }
-        // UUID key (collision-free) appended via a coordinated read-modify-write
-        // so a concurrent host save can't clobber it.
-        let key = "c-" + UUID().uuidString
-        SharedStore.mutate { doc in
-            if !doc.customTags.contains(where: { $0.key == key }) {
-                doc.customTags.append(TagDef(key: key, ja: trimmed, builtin: false))
+        if let builtin = Tags.defaults.first(where: { $0.ja == trimmed }) { return builtin.key }
+        var key: String?
+        guard let updated = SharedStore.updateDocument({ document in
+            if let existing = document.customTags.first(where: { $0.ja == trimmed }) {
+                key = existing.key
+                return true
             }
-        }
-        allTags = Tags.defaults + SharedStore.snapshot().customTags
+            guard document.customTags.count < Tags.maxCustom else { return false }
+            let tag = TagDef(key: "c-" + UUID().uuidString, ja: trimmed, builtin: false)
+            document.customTags.append(tag)
+            key = tag.key
+            return true
+        }) else { return nil }
+        allTags = Tags.defaults + updated.customTags
         return key
     }
 
@@ -303,24 +305,29 @@ struct ShareComposeView: View {
         let adoptedOperation = importAdopted && importOperation?.finished == false ? importOperation : nil
         if adoptedOperation == nil { cancelImport() }
         let operation = adoptedOperation ?? Analytics.Operation(.saveItem)
-        let ok = SharedStore.mutate { doc in
-            let id = (doc.items.map(\.id).max() ?? 0) + 1
+        var tagCount = 0
+        let updated = SharedStore.updateDocument { doc in
+            guard let id = doc.nextItemID else { return false }
+            let selectedTags = doc.availableTags(tags)
+            tagCount = selectedTags.count
             let item = BucketItem(
                 id: id, title: trimmed, priority: priority,
                 seasons: seasons.isEmpty ? [.any] : seasons,
-                tags: tags, meta: memo.trimmingCharacters(in: .whitespacesAndNewlines),
+                tags: selectedTags, meta: memo.trimmingCharacters(in: .whitespacesAndNewlines),
                 done: false, doneAt: nil, via: "共有", url: savedURL,
                 savedAt: BucketItem.savedAtFormatter.string(from: Clock.today)
             )
             doc.items.insert(item, at: 0)
+            return true
         }
+        let ok = updated != nil
         // Only dismiss the share sheet as "saved" when the write actually
         // succeeded; otherwise warn instead of losing the item silently.
         operation.finish(ok ? .success : .error, error: .storage)
         if ok {
             Analytics.firstItemSaved()
             // Queued in the App Group; the host app sends it on next foreground.
-            Analytics.itemAdded(priority: priority, seasons: seasons, tagCount: tags.count,
+            Analytics.itemAdded(priority: priority, seasons: seasons, tagCount: tagCount,
                                 hasURL: savedURL != nil, source: "share",
                                 fromCapture: urlState == .ok)
             onSave()
