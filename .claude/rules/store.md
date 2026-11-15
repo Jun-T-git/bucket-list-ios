@@ -9,7 +9,7 @@ paths:
 正典：[設計原則§5・§9](../../docs/philosophy/02-設計原則.md) / [architecture/overview](../../docs/architecture/overview.md)
 
 - **単一の真実源**：状態は `AppStore: ObservableObject` に集約（per-screen MVVM を作らない）。
-  変更メソッドはローカルコピーを編集して一度だけ代入 → `didSet` が**1回だけ**永続化する形を保つ。
+  変更メソッドは `SharedStore.updateDocument` の協調書込内で最新文書に変更を適用し、保存できた状態を一度反映する。
 - **データを壊さない（寛容な永続化）**：
   - デコード失敗でストア全体を空に上書きしない。`StoreLoad`（`.absent`/`.loaded`/`.unreadable`）を区別し、
     読めない時はバックアップ復旧。

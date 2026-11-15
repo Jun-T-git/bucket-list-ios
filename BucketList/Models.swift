@@ -570,11 +570,9 @@ enum SortMode: String, Codable, CaseIterable, Identifiable {
 final class AppStore: ObservableObject {
 
     // Persistent
-    @Published var items: [BucketItem] {
-        didSet { persistDocument() }
-    }
-    @Published var customTags: [TagDef] {
-        didSet { rebuildTagCache(); persistDocument() }
+    @Published private(set) var items: [BucketItem]
+    @Published private(set) var customTags: [TagDef] {
+        didSet { rebuildTagCache() }
     }
 
     // Set when the store on disk was present but unreadable at launch. The UI
@@ -643,9 +641,6 @@ final class AppStore: ObservableObject {
     private var toastToken: UUID = UUID()
 
     private(set) var lastDocumentSaveSucceeded = false
-    private var isApplyingLoadedDocument = false
-
-    private var nextId: Int
 
     init() {
         Analytics.prepareFirstValueScope()
@@ -687,7 +682,6 @@ final class AppStore: ObservableObject {
         self.items = loadedItems
         self.customTags = loadedTags
         self.tweaks = Storage.loadTweaks() ?? Tweaks()
-        self.nextId = AppStore.nextId(after: loadedItems)
         // Restore the saved sort + filter configuration. Assigning in init does
         // not trigger the didSet observers, so no redundant write-back here.
         let prefs = Storage.loadPrefs() ?? ViewPrefs()
@@ -727,14 +721,7 @@ final class AppStore: ObservableObject {
         showOnboarding = true
     }
 
-    // Next free id given a set of items. Used by init() and reload() so the
-    // counter never collides with an id the Share Extension assigned while
-    // the app was backgrounded.
-    private static func nextId(after items: [BucketItem]) -> Int {
-        (items.lazy.map(\.id).max() ?? 0) + 1
-    }
-
-    // Re-read the shared store and recompute the id counter. Called on
+    // Re-read the shared store. Called on
     // foreground (scenePhase .active) so items captured via the Share
     // Extension show up without an app relaunch. Unchanged documents skip
     // the didSet observers and their widget refresh work.
@@ -750,11 +737,7 @@ final class AppStore: ObservableObject {
             }
             // The snapshot has already been persisted. Applying its fields
             // must not write it back over a newer extension update.
-            isApplyingLoadedDocument = true
-            items = doc.items
-            customTags = doc.customTags
-            isApplyingLoadedDocument = false
-            nextId = AppStore.nextId(after: doc.items)
+            applyDocument(doc)
             reloadWidgets()
         case .absent, .unreadable:
             // Nothing good to load — keep the current working set rather than
@@ -799,7 +782,7 @@ final class AppStore: ObservableObject {
 
     func toggle(id: Int) {
         guard let idx = items.firstIndex(where: { $0.id == id }) else { return }
-        // Mutate a local copy and assign once so the store persists a single time.
+        // Compute the requested edit from the item shown on screen.
         var next = items
         next[idx].done.toggle()
         let nowDone = next[idx].done
@@ -811,8 +794,9 @@ final class AppStore: ObservableObject {
         // Keep doneAt when un-checking so an accidental off/on round-trip
         // preserves the original date. The report only counts done items.
         let operation = nowDone ? Analytics.Operation(.completeItem) : nil
-        items = next
-        operation?.finish(lastDocumentSaveSucceeded ? .success : .error, error: .storage)
+        let saved = storeItemChanges(next)
+        operation?.finish(saved ? .success : .error, error: .storage)
+        guard saved else { return }
         if nowDone {
             Haptics.success()
             flash(doneLine())
@@ -867,7 +851,7 @@ final class AppStore: ObservableObject {
         for i in next.indices where ids.contains(next[i].id) {
             if !next[i].tags.contains(key) { next[i].tags.append(key) }
         }
-        items = next
+        guard storeItemChanges(next) else { return }
         Haptics.light()
         Analytics.bulk("tag_add", count: ids.count)
     }
@@ -878,7 +862,7 @@ final class AppStore: ObservableObject {
         for i in next.indices where ids.contains(next[i].id) {
             next[i].tags.removeAll { $0 == key }
         }
-        items = next
+        guard storeItemChanges(next) else { return }
         Haptics.light()
         Analytics.bulk("tag_remove", count: ids.count)
     }
@@ -896,7 +880,7 @@ final class AppStore: ObservableObject {
         guard !ids.isEmpty else { return }
         var next = items
         for i in next.indices where ids.contains(next[i].id) { next[i].priority = p }
-        items = next
+        guard storeItemChanges(next) else { return }
         Haptics.light()
         flash("優先度を変更しました。")
         Analytics.bulk("priority", count: ids.count)
@@ -927,10 +911,11 @@ final class AppStore: ObservableObject {
             if done && !wasDone { newlyDone.append(next[i]) }
         }
         let operations = newlyDone.map { _ in Analytics.Operation(.completeItem) }
-        items = next   // single didSet → single persist
+        let saved = storeItemChanges(next)
         for operation in operations {
-            operation.finish(lastDocumentSaveSucceeded ? .success : .error, error: .storage)
+            operation.finish(saved ? .success : .error, error: .storage)
         }
+        guard saved else { return }
         Haptics.success()
         flash(done ? "\(ids.count)件を達成にしました。" : "\(ids.count)件を未達成に戻しました。")
         Analytics.bulk(done ? "done" : "undone", count: ids.count)
@@ -948,20 +933,15 @@ final class AppStore: ObservableObject {
         let removed = items.enumerated()
             .filter { ids.contains($0.element.id) }
             .map { (item: $0.element, index: $0.offset) }
+        guard storeItemChanges(items.filter { !ids.contains($0.id) }) else { return }
         pendingUndoMany = removed
-        items.removeAll { ids.contains($0.id) }
         Haptics.warning()
         Analytics.track(.itemDelete, ["source": .string("bulk"), "count": .int(n)])
         flash("\(n)件を削除しました。", duration: 3.5,
               undoLabel: "元に戻す",
               undo: { [weak self] in
                   guard let self, let pending = self.pendingUndoMany else { return }
-                  var next = self.items
-                  // Re-insert ascending by original index so positions line up.
-                  for entry in pending.sorted(by: { $0.index < $1.index }) {
-                      next.insert(entry.item, at: min(entry.index, next.count))
-                  }
-                  self.items = next
+                  guard self.restoreItems(pending) else { return }
                   self.pendingUndoMany = nil
                   Haptics.light()
                   Analytics.track(.undo, ["kind": .string("delete_many"), "count": .int(n)])
@@ -973,7 +953,7 @@ final class AppStore: ObservableObject {
         guard let idx = items.firstIndex(where: { $0.id == id }) else { return }
         var next = items
         next[idx].doneAt = date
-        items = next
+        storeItemChanges(next)
     }
 
     // Mark a single item done with an explicit achievement date — used by the
@@ -985,8 +965,9 @@ final class AppStore: ObservableObject {
         next[idx].done = true
         next[idx].doneAt = date
         let operation = items[idx].done ? nil : Analytics.Operation(.completeItem)
-        items = next
-        operation?.finish(lastDocumentSaveSucceeded ? .success : .error, error: .storage)
+        let saved = storeItemChanges(next)
+        operation?.finish(saved ? .success : .error, error: .storage)
+        guard saved else { return }
         Haptics.success()
         flash(doneLine())
         if operation != nil && lastDocumentSaveSucceeded { Analytics.itemDone(next[idx], source: "detail") }
@@ -1001,11 +982,15 @@ final class AppStore: ObservableObject {
         return "達成しました。今年 \(doneThisYear) 件目です。"
     }
 
-    func remove(id: Int) {
-        guard let idx = items.firstIndex(where: { $0.id == id }) else { return }
+    @discardableResult
+    func remove(id: Int, expected: BucketItem? = nil) -> Bool {
+        guard let idx = items.firstIndex(where: { $0.id == id }),
+              expected == nil || items[idx] == expected else { return false }
         let removed = items[idx]
+        var next = items
+        next.remove(at: idx)
+        guard storeItemChanges(next) else { return false }
         pendingUndo = (removed, idx)
-        items.remove(at: idx)
         Haptics.warning()
         Analytics.track(.itemDelete, ["source": .string("single"), "count": .int(1),
                                       "was_done": .init(removed.done)])
@@ -1014,20 +999,20 @@ final class AppStore: ObservableObject {
               undo: { [weak self] in
                   guard let self else { return }
                   guard let pending = self.pendingUndo, pending.item.id == id else { return }
-                  let insertAt = min(pending.index, self.items.count)
-                  self.items.insert(pending.item, at: insertAt)
+                  guard self.restoreItems([pending]) else { return }
                   self.pendingUndo = nil
                   Haptics.light()
                   Analytics.track(.undo, ["kind": .string("delete"), "count": .int(1)])
               })
+        return true
     }
 
+    @discardableResult
     func update(id: Int, title: String, priority: Priority,
                 seasons: [SeasonTag], tags: [String], meta: String,
-                url: String? = nil) {
-        guard let idx = items.firstIndex(where: { $0.id == id }) else { return }
-        // Edit a local copy and assign once, so the five field updates persist
-        // as a single write instead of five.
+                url: String? = nil, expected: BucketItem? = nil) -> Bool {
+        guard let idx = items.firstIndex(where: { $0.id == id }),
+              expected == nil || items[idx] == expected else { return false }
         var next = items
         next[idx].title = title
         next[idx].priority = priority
@@ -1045,14 +1030,11 @@ final class AppStore: ObservableObject {
             next[idx].url = nil
             next[idx].via = nil
         }
-        items = next
-        guard lastDocumentSaveSucceeded else {
-            flash("保存できませんでした。")
-            return
-        }
+        guard storeItemChanges(next, requiring: id) else { return false }
         Haptics.light()
         flash("保存しました。")
         Analytics.track(.itemUpdate, ["has_url": .init(next[idx].url != nil)])
+        return true
     }
 
     @discardableResult
@@ -1060,28 +1042,30 @@ final class AppStore: ObservableObject {
              seasons: [SeasonTag], tags: [String],
              meta: String, via: String? = nil, url: String? = nil,
              fromCapture: Bool = false,
-             importOperation: Analytics.Operation? = nil) -> BucketItem {
-        let id = nextId; nextId += 1
-        let item = BucketItem(
-            id: id, title: title, priority: priority,
-            seasons: seasons.isEmpty ? [.any] : seasons,
-            tags: tags, meta: meta, done: false,
-            via: via, url: url,
-            savedAt: BucketItem.savedAtFormatter.string(from: Clock.today)
-        )
+             importOperation: Analytics.Operation? = nil) -> BucketItem? {
         let operation = importOperation ?? Analytics.Operation(.saveItem)
-        items.insert(item, at: 0)
-        operation.finish(lastDocumentSaveSucceeded ? .success : .error, error: .storage)
-        if lastDocumentSaveSucceeded {
-            Analytics.itemAdded(priority: item.priority, seasons: item.seasons,
-                                tagCount: item.tags.count, hasURL: item.url != nil,
-                                source: "app", fromCapture: fromCapture)
-            Analytics.firstItemSaved()
-            Haptics.success()
-            flash("保存しました。")
-        } else {
-            flash("保存できませんでした。")
+        var inserted: BucketItem?
+        let saved = commitDocument { document in
+            guard let id = document.nextItemID else { return false }
+            let item = BucketItem(
+                id: id, title: title, priority: priority,
+                seasons: seasons.isEmpty ? [.any] : seasons,
+                tags: document.availableTags(tags), meta: meta, done: false,
+                via: via, url: url,
+                savedAt: BucketItem.savedAtFormatter.string(from: Clock.today)
+            )
+            document.items.insert(item, at: 0)
+            inserted = item
+            return true
         }
+        operation.finish(saved ? .success : .error, error: .storage)
+        guard saved, let item = inserted else { return nil }
+        Analytics.itemAdded(priority: item.priority, seasons: item.seasons,
+                            tagCount: item.tags.count, hasURL: item.url != nil,
+                            source: "app", fromCapture: fromCapture)
+        Analytics.firstItemSaved()
+        Haptics.success()
+        flash("保存しました。")
         return item
     }
 
@@ -1091,39 +1075,58 @@ final class AppStore: ObservableObject {
     func addCustomTag(_ label: String) -> String? {
         let trimmed = label.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return nil }
-        if let existing = allTags.first(where: { $0.ja == trimmed }) {
-            return existing.key
+        if let builtin = Tags.defaults.first(where: { $0.ja == trimmed }) {
+            return builtin.key
         }
-        guard customTags.count < Tags.maxCustom else {
-            flash("カスタムタグは\(Tags.maxCustom)個までです。")
+        var key: String?
+        var added = false
+        var atLimit = false
+        guard commitDocument(showFailure: false, { document in
+            if let existing = document.customTags.first(where: { $0.ja == trimmed }) {
+                key = existing.key
+                return true
+            }
+            guard document.customTags.count < Tags.maxCustom else {
+                atLimit = true
+                return false
+            }
+            let tag = TagDef(key: "c-" + UUID().uuidString, ja: trimmed, builtin: false)
+            document.customTags.append(tag)
+            key = tag.key
+            added = true
+            return true
+        }) else {
+            flash(atLimit ? "カスタムタグは\(Tags.maxCustom)個までです。" : "保存できませんでした。")
             return nil
         }
-        // UUID-based key: collision-free even when two tags are added in the
-        // same second (a second-resolution timestamp key was not).
-        let key = "c-" + UUID().uuidString
-        customTags.append(TagDef(key: key, ja: trimmed, builtin: false))
-        flash("「\(trimmed)」を追加しました。")
-        Analytics.track(.customTagAdd, ["custom_count": .int(customTags.count)])
+        if added {
+            flash("「\(trimmed)」を追加しました。")
+            Analytics.track(.customTagAdd, ["custom_count": .int(customTags.count)])
+        }
         return key
     }
 
-    // Update a custom tag's label and its optional AI description in one edit.
-    // An empty description is stored as nil (no line is sent to the model).
+    // Persist a custom tag's label and description in the same write.
     func updateCustomTag(key: String, label: String, desc: String?) {
-        guard let idx = customTags.firstIndex(where: { $0.key == key }) else { return }
         let trimmedLabel = label.trimmingCharacters(in: .whitespaces)
-        if !trimmedLabel.isEmpty { customTags[idx].ja = trimmedLabel }
-        let d = desc?.trimmingCharacters(in: .whitespacesAndNewlines)
-        customTags[idx].desc = (d?.isEmpty == false) ? d : nil
+        let description = desc?.trimmingCharacters(in: .whitespacesAndNewlines)
+        commitDocument { document in
+            guard let index = document.customTags.firstIndex(where: { $0.key == key }) else { return false }
+            if !trimmedLabel.isEmpty { document.customTags[index].ja = trimmedLabel }
+            document.customTags[index].desc = description?.isEmpty == false ? description : nil
+            return true
+        }
     }
 
     func removeCustomTag(key: String) {
-        customTags.removeAll { $0.key == key }
-        // Strip the tag off every item in one pass, then assign once — the old
-        // per-index mutation re-persisted the whole document N times (O(N²)).
-        var next = items
-        for i in next.indices { next[i].tags.removeAll { $0 == key } }
-        items = next
+        guard commitDocument({ document in
+            guard document.customTags.contains(where: { $0.key == key }) else { return false }
+            document.customTags.removeAll { $0.key == key }
+            for index in document.items.indices {
+                document.items[index].tags.removeAll { $0 == key }
+            }
+            return true
+        }) else { return }
         filters.tags.remove(key)
         flash("タグを削除しました。")
     }
@@ -1164,21 +1167,67 @@ final class AppStore: ObservableObject {
 
     // MARK: persistence
 
-    // Items and custom tags are one document, written together so they stay
-    // consistent. The host replaces the whole document (it's the source of
-    // truth for its session and reloads on foreground to absorb the extension).
-    private func persistDocument() {
-        guard !isApplyingLoadedDocument else { return }
-        let doc = StoreDocument(items: items, customTags: customTags)
-        lastDocumentSaveSucceeded = SharedStore.save(doc)
-        if lastDocumentSaveSucceeded { reloadWidgets(); return }
-        // A failed write leaves the in-memory list ahead of disk. Retry once —
-        // this covers a transient NSFileCoordinator / atomic-write hiccup. The
-        // read side (StoreLoad + backup recovery) still guards against loading
-        // damaged data on the next launch, so a persistent failure degrades to
-        // "last good snapshot" rather than a wipe.
-        lastDocumentSaveSucceeded = SharedStore.save(doc)
+    // Apply only the edits based on the visible rows. A shared addition is
+    // unrelated and survives; a changed or reused target ID rejects the edit.
+    @discardableResult
+    private func storeItemChanges(_ edited: [BucketItem], requiring id: Int? = nil) -> Bool {
+        let editedByID = Dictionary(edited.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let changed = items.filter { editedByID[$0.id] != $0 }
+        let targets = items.filter { $0.id == id || editedByID[$0.id] != $0 }
+        return commitDocument { document in
+            let onDisk = Dictionary(grouping: document.items, by: \.id)
+            guard targets.allSatisfy({ onDisk[$0.id] == [$0] }) else { return false }
+            let changedIDs = Set(changed.map(\.id))
+            document.items = document.items.compactMap { current in
+                guard changedIDs.contains(current.id) else { return current }
+                guard var replacement = editedByID[current.id] else { return nil }
+                if replacement.tags != current.tags {
+                    replacement.tags = document.availableTags(replacement.tags)
+                }
+                return replacement
+            }
+            return true
+        }
+    }
+
+    private func restoreItems(_ removed: [(item: BucketItem, index: Int)]) -> Bool {
+        commitDocument { document in
+            let liveIDs = Set(document.items.map(\.id))
+            guard removed.allSatisfy({ !liveIDs.contains($0.item.id) }) else { return false }
+            for entry in removed {
+                var item = entry.item
+                item.tags = document.availableTags(item.tags)
+                document.items.insert(item, at: min(entry.index, document.items.count))
+            }
+            return true
+        }
+    }
+
+    private func applyDocument(_ document: StoreDocument) {
+        if items != document.items { items = document.items }
+        if customTags != document.customTags { customTags = document.customTags }
+    }
+
+    @discardableResult
+    private func commitDocument(showFailure: Bool = true,
+                                _ change: (inout StoreDocument) -> Bool) -> Bool {
+        let updated: StoreDocument?
+        if Screenshots.isOn {
+            var demo = StoreDocument(items: items, customTags: customTags)
+            updated = change(&demo) ? demo : nil
+        } else {
+            updated = SharedStore.updateDocument(change)
+        }
+        lastDocumentSaveSucceeded = updated != nil
+        guard let updated else {
+            reload()
+            if showFailure { flash("保存できませんでした。") }
+            return false
+        }
+        applyDocument(updated)
+        storageUnreadable = false
         reloadWidgets()
+        return true
     }
 
     // Any change to the document may change the timing suggestion the home-screen
@@ -1203,6 +1252,20 @@ final class AppStore: ObservableObject {
 struct StoreDocument: Codable, Equatable {
     var items: [BucketItem] = []
     var customTags: [TagDef] = []
+    // Optional so stores from older releases decode without a migration.
+    var highestItemID: Int?
+
+    var itemIDHighWater: Int { max(highestItemID ?? 0, items.lazy.map(\.id).max() ?? 0) }
+
+    var nextItemID: Int? {
+        let highest = itemIDHighWater
+        return highest < Int.max ? highest + 1 : nil
+    }
+
+    func availableTags(_ keys: [String]) -> [String] {
+        let available = Set((Tags.defaults + customTags).map(\.key))
+        return keys.filter { available.contains($0) }
+    }
 }
 
 // Outcome of a load. Deliberately separates "nothing saved yet" from "data is
@@ -1261,9 +1324,11 @@ private struct LossyDocument: Decodable {
     // to a genuinely empty list. interpret() promotes this to .unreadable so
     // backup recovery runs instead of the empty result silently wiping the list.
     let itemsAllFailed: Bool
-    enum CodingKeys: String, CodingKey { case items, customTags }
+    let highestItemID: Int?
+    enum CodingKeys: String, CodingKey { case items, customTags, highestItemID }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        highestItemID = try? c.decode(Int.self, forKey: .highestItemID)
         hasAnyKey = c.contains(.items) || c.contains(.customTags)
         // Legacy documents may omit either field. A field present with
         // the wrong type (including null) must trigger backup recovery.
@@ -1359,52 +1424,75 @@ enum SharedStore {
         // from the backup instead of returning an empty list that would then be
         // written back over the last good data.
         if doc.itemsAllFailed { return .unreadable }
-        return .loaded(StoreDocument(items: doc.items, customTags: doc.customTags))
+        return .loaded(StoreDocument(items: doc.items, customTags: doc.customTags,
+                                     highestItemID: doc.highestItemID))
     }
 
     // MARK: write
 
-    // Full-document write. The host app is the source of truth for its own
-    // session, so it replaces the document wholesale (and reloads on foreground
-    // to absorb anything the extension added while it was away).
+    // Whole-document write for initial migration and fixtures.
     @discardableResult
-    static func save(_ doc: StoreDocument) -> Bool {
+    static func save(_ doc: StoreDocument, onlyIfAbsent: Bool = false) -> Bool {
         guard let url = fileURL else { return Storage.legacySave(doc) }
         guard let data = try? encoder.encode(doc) else { return false }
         let coordinator = NSFileCoordinator()
         var coordErr: NSError?
         var ok = false
         coordinator.coordinate(writingItemAt: url, options: .forReplacing, error: &coordErr) { u in
-            if case .unreadable = interpretFile(u) { return }
+            switch interpretFile(u) {
+            case .absent: break
+            case .loaded where !onlyIfAbsent: break
+            case .loaded, .unreadable: return
+            }
             ok = write(data, to: u)
         }
         return ok && coordErr == nil
     }
 
-    // Coordinated read-modify-write. The Share Extension appends through this so
-    // it merges into whatever the host last saved instead of clobbering it.
+    // Both app and share extension apply changes to the same coordinated read.
     @discardableResult
     static func mutate(_ body: (inout StoreDocument) -> Void) -> Bool {
+        updateDocument { document in
+            body(&document)
+            return true
+        } != nil
+    }
+
+    static func updateDocument(_ change: (inout StoreDocument) -> Bool) -> StoreDocument? {
         guard let url = fileURL else {
-            var doc = Storage.legacyDocument()
-            body(&doc)
-            return Storage.legacySave(doc)
+            let original = Storage.legacyDocument()
+            guard let document = applying(change, to: original) else { return nil }
+            return document == original || Storage.legacySave(document) ? document : nil
         }
         let coordinator = NSFileCoordinator()
         var coordErr: NSError?
-        var ok = false
+        var updated: StoreDocument?
         coordinator.coordinate(writingItemAt: url, options: .forMerging, error: &coordErr) { u in
-            var doc: StoreDocument
+            let original: StoreDocument
             switch interpretFile(u) {
-            case .loaded(let d): doc = d
-            case .absent:        doc = StoreDocument()
-            case .unreadable:    return   // never overwrite damaged data blindly
+            case .loaded(let document): original = document
+            case .absent: original = StoreDocument()
+            case .unreadable: return
             }
-            body(&doc)
-            guard let data = try? encoder.encode(doc) else { return }
-            ok = write(data, to: u)
+            guard let document = applying(change, to: original) else { return }
+            if document != original {
+                guard let data = try? encoder.encode(document), write(data, to: u) else { return }
+            }
+            updated = document
         }
-        return ok && coordErr == nil
+        return coordErr == nil ? updated : nil
+    }
+
+    private static func applying(_ change: (inout StoreDocument) -> Bool,
+                                 to original: StoreDocument) -> StoreDocument? {
+        var document = original
+        guard change(&document) else { return nil }
+        if document != original {
+            // Preserve the ID of a deleted row so stale links, edits and undo
+            // never identify a newer item as that row.
+            document.highestItemID = max(original.itemIDHighWater, document.itemIDHighWater)
+        }
+        return document
     }
 
     // Reads from inside an existing coordination block.
@@ -1436,7 +1524,7 @@ enum SharedStore {
         guard isAvailable, case .absent = load() else { return }
         let doc = Storage.legacyDocument()
         if !doc.items.isEmpty || !doc.customTags.isEmpty {
-            _ = save(doc)
+            _ = save(doc, onlyIfAbsent: true)
         }
     }
 }
@@ -1485,8 +1573,11 @@ enum Storage {
     // the fallback when the App Group container can't be resolved). Decoded
     // leniently so a single bad record can't take the rest down with it.
 
+    private static let kHighestItemID = "bucket-list-v2.highestItemID"
+
     static func legacyDocument() -> StoreDocument {
-        StoreDocument(items: legacyItems(), customTags: legacyCustomTags())
+        StoreDocument(items: legacyItems(), customTags: legacyCustomTags(),
+                      highestItemID: defaults.object(forKey: kHighestItemID) as? Int)
     }
     static func legacyLoad() -> StoreLoad {
         let doc = legacyDocument()
@@ -1500,6 +1591,7 @@ enum Storage {
               let tagsData = try? encoder.encode(doc.customTags) else { return false }
         defaults.set(itemsData, forKey: kItems)
         defaults.set(tagsData, forKey: kTags)
+        defaults.set(doc.highestItemID, forKey: kHighestItemID)
         return true
     }
     private static func legacyItems() -> [BucketItem] {

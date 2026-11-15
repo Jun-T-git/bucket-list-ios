@@ -347,3 +347,160 @@ struct StoreDocumentTests {
         #expect(SharedStore.interpret(mixed) == .loaded(document))
     }
 }
+
+struct SharedDocumentConcurrencyTests {
+    private func item(_ id: Int, _ title: String, tags: [String] = []) -> BucketItem {
+        BucketItem(id: id, title: title, priority: .maybe, seasons: [.any],
+                   tags: tags, meta: "", done: false, via: nil, url: nil,
+                   savedAt: "2026-11-15")
+    }
+
+    // The app-hosted tests use the real App Group on an isolated simulator.
+    // Restore existing bytes even when an assertion throws.
+    @MainActor private func withDocument(_ document: StoreDocument,
+                                         _ test: (URL, URL) throws -> Void) throws {
+        let container = try #require(FileManager.default.containerURL(
+            forSecurityApplicationGroupIdentifier: SharedStore.appGroupID
+        ))
+        let primary = container.appendingPathComponent("store.json")
+        let backup = container.appendingPathComponent("store.bak.json")
+        let originals = try [primary, backup].map { url in
+            (url, FileManager.default.fileExists(atPath: url.path) ? try Data(contentsOf: url) : nil)
+        }
+        defer {
+            for (url, bytes) in originals {
+                do {
+                    if let bytes {
+                        try bytes.write(to: url, options: .atomic)
+                    } else if FileManager.default.fileExists(atPath: url.path) {
+                        try FileManager.default.removeItem(at: url)
+                    }
+                } catch {
+                    Issue.record("Failed to restore the test host's store fixture")
+                }
+            }
+        }
+        try #require(SharedStore.save(document))
+        try test(primary, backup)
+    }
+
+    @MainActor @Test func hostEditAfterShareAppend() throws {
+        let seed = item(41, "Host fixture")
+        let shared = item(42, "Shared fixture")
+
+        for reloadBeforeSaving in [true, false] {
+            try withDocument(StoreDocument(items: [seed])) { _, backup in
+                let host = AppStore()
+                try #require(host.items == [seed])
+                try #require(SharedStore.mutate { $0.items.insert(shared, at: 0) })
+                if reloadBeforeSaving { host.reload() }
+
+                try #require(host.update(id: 41, title: "Host edited", priority: seed.priority,
+                                         seasons: seed.seasons, tags: [], meta: ""))
+                var edited = seed
+                edited.title = "Host edited"
+                let saved = try JSONDecoder().decode(StoreDocument.self, from: Data(contentsOf: backup))
+                #expect(saved.items == [shared, edited])
+                #expect(SharedStore.snapshot().items == saved.items)
+                #expect(AppStore().items == saved.items)
+            }
+        }
+    }
+
+    @MainActor @Test func hostAddAndTagRemovalUseCurrentDocument() throws {
+        let tag = TagDef(key: "c-fixture", ja: "Fixture", builtin: false)
+        let seed = item(41, "Host", tags: [tag.key])
+        let shared = item(42, "Shared", tags: [tag.key])
+        let sharedTag = TagDef(key: "c-shared", ja: "Shared tag", builtin: false)
+
+        try withDocument(StoreDocument(items: [seed], customTags: [tag])) { _, _ in
+            let host = AppStore()
+            try #require(SharedStore.mutate {
+                $0.items.insert(shared, at: 0)
+                $0.customTags.append(sharedTag)
+            })
+            let added = try #require(host.add(title: "New host", priority: .maybe,
+                                              seasons: [.any], tags: [sharedTag.key], meta: ""))
+            #expect(added.id == 43)
+            host.removeCustomTag(key: tag.key)
+
+            let document = SharedStore.snapshot()
+            #expect(document.items.map(\.id) == [43, 42, 41])
+            #expect(document.items.map(\.tags) == [[sharedTag.key], [], []])
+            #expect(document.customTags == [sharedTag])
+            #expect(host.items == document.items)
+        }
+    }
+
+    @MainActor @Test func staleEditAndUndoCannotReplaceAnotherItem() throws {
+        let seed = item(41, "Original")
+        let replacement = item(41, "Another item")
+        try withDocument(StoreDocument(items: [seed])) { _, _ in
+            let staleHost = AppStore()
+            let deletingHost = AppStore()
+            try #require(deletingHost.remove(id: 41))
+            try #require(SharedStore.mutate { $0.items = [replacement] })
+
+            #expect(!staleHost.update(id: 41, title: "Stale edit", priority: .maybe,
+                                      seasons: [.any], tags: [], meta: ""))
+            #expect(!staleHost.update(id: 41, title: "Retry old form", priority: .maybe,
+                                      seasons: [.any], tags: [], meta: "", expected: seed))
+            deletingHost.runToastUndo()
+
+            #expect(SharedStore.snapshot().items == [replacement])
+            #expect(deletingHost.items == [replacement])
+            #expect(deletingHost.toast == "保存できませんでした。")
+        }
+    }
+
+    @MainActor @Test func shareAppendAfterDeleteKeepsUndoAndUsesFreshID() throws {
+        let seed = item(41, "Original")
+        try withDocument(StoreDocument(items: [seed])) { _, backup in
+            let staleHost = AppStore()
+            let host = AppStore()
+            try #require(host.remove(id: 41))
+            let afterShare = try #require(SharedStore.updateDocument { document in
+                guard let id = document.nextItemID else { return false }
+                document.items.insert(item(id, "Shared"), at: 0)
+                return true
+            })
+            #expect(afterShare.items.map(\.id) == [42])
+
+            // The stale form still submits the original field values.
+            #expect(!staleHost.update(id: seed.id, title: seed.title, priority: seed.priority,
+                                      seasons: seed.seasons, tags: seed.tags, meta: seed.meta))
+            host.runToastUndo()
+            let reloaded = AppStore()
+            #expect(Set(reloaded.items.map(\.id)) == [41, 42])
+            #expect(reloaded.items.contains(seed))
+            let savedBackup = try JSONDecoder().decode(StoreDocument.self, from: Data(contentsOf: backup))
+            #expect(savedBackup == SharedStore.snapshot())
+        }
+    }
+
+    @MainActor @Test func firstMigrationCannotReplaceAnExistingDocument() throws {
+        let saved = StoreDocument(items: [item(41, "Already saved")])
+        try withDocument(saved) { _, _ in
+            let legacy = StoreDocument(items: [item(1, "Legacy")])
+            #expect(!SharedStore.save(legacy, onlyIfAbsent: true))
+            #expect(SharedStore.snapshot() == saved)
+        }
+    }
+
+    @MainActor @Test func damagedDocumentRejectsHostAndShareWrites() throws {
+        let seed = item(41, "Original")
+        try withDocument(StoreDocument(items: [seed])) { primary, backup in
+            let host = AppStore()
+            let badPrimary = Data(#"{"items":null}"#.utf8)
+            let badBackup = Data(#"{"items":42}"#.utf8)
+            try badPrimary.write(to: primary, options: .atomic)
+            try badBackup.write(to: backup, options: .atomic)
+
+            #expect(!host.update(id: 41, title: "Blocked", priority: .maybe,
+                                 seasons: [.any], tags: [], meta: ""))
+            #expect(!SharedStore.mutate { $0.items.append(item(42, "Blocked")) })
+            #expect(try Data(contentsOf: primary) == badPrimary)
+            #expect(try Data(contentsOf: backup) == badBackup)
+        }
+    }
+}
